@@ -32,6 +32,11 @@ const NewArrivals = () => {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
+  const baseProducts = Array.isArray(productsData.products) ? productsData.products : [];
+  const baseById = useRef(new Map<number, Product>());
+  if (baseById.current.size === 0) {
+    baseProducts.forEach((p) => baseById.current.set(p.id, p as Product));
+  }
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -67,13 +72,38 @@ const NewArrivals = () => {
     setProducts(next);
   };
 
+  const normalizeProduct = (raw: Partial<Product>, fallbackId?: number) => {
+    const rawId = Number(raw.id ?? fallbackId ?? 0);
+    const base = rawId ? baseById.current.get(rawId) : undefined;
+    const id = rawId || base?.id || 0;
+    return {
+      ...base,
+      ...raw,
+      id,
+    } as Product;
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
+
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      const sortedCached = cached.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+      const newProducts = sortedCached.filter((p) => p.isNew);
+      applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
+      setIsLoading(false);
+    } else if (productsData.products?.length) {
+      const allProducts = (productsData.products as Product[]).map((item) => normalizeProduct(item, item.id)).sort(sortById);
+      const newProducts = allProducts.filter((p) => p.isNew);
+      applyProducts(newProducts.length > 0 ? newProducts : allProducts);
+      writeCache(allProducts);
+      setIsLoading(false);
+    }
 
     const seedFromJson = async () => {
       try {
         const allProducts: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
-        const sorted = [...allProducts].sort(sortById);
+        const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
         applyProducts(newProducts.length > 0 ? newProducts : sorted);
         writeCache(sorted);
@@ -97,39 +127,33 @@ const NewArrivals = () => {
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
-        const allProducts = snapshot.docs.map((d) => d.data() as Product);
-        const sorted = [...allProducts].sort(sortById);
+        if (snapshot.empty) {
+          seedFromJson();
+          return;
+        }
+        const allProducts = snapshot.docs.map((d) => {
+          const docId = Number(d.id);
+          return normalizeProduct(d.data() as Product, Number.isNaN(docId) ? undefined : docId);
+        });
+        const sorted = allProducts.slice().sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
-        const next = newProducts.length > 0 ? newProducts : sorted;
-        applyProducts(next);
+        applyProducts(newProducts.length > 0 ? newProducts : sorted);
+        writeCache(sorted);
         setIsLoading(false);
       });
     } else {
-      const cached = readCache();
-      if (cached && cached.length > 0) {
-        const sortedCached = [...cached].sort(sortById);
-        const newProducts = sortedCached.filter((p) => p.isNew);
-        applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
-        setIsLoading(false);
-      } else if (productsData.products?.length) {
-        const allProducts = [...(productsData.products as Product[])].sort(sortById);
-        const newProducts = allProducts.filter((p) => p.isNew);
-        applyProducts(newProducts.length > 0 ? newProducts : allProducts);
-        writeCache(allProducts);
-        setIsLoading(false);
-      }
       const storedProducts = localStorage.getItem('products');
       let allProducts: Product[] = [];
       if (storedProducts) {
         allProducts = JSON.parse(storedProducts) as Product[];
-        const sorted = [...allProducts].sort(sortById);
+        const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         writeCache(sorted);
       }
       // fallback to fetch if no localStorage
       if (allProducts.length === 0) {
         seedFromJson();
       } else {
-        const sorted = [...allProducts].sort(sortById);
+        const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         const newProducts = sorted.filter((p: Product) => p.isNew);
         applyProducts(newProducts.length > 0 ? newProducts : sorted);
         setIsLoading(false);

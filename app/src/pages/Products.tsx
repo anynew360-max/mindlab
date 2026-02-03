@@ -35,6 +35,11 @@ function ProductsContent() {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
+  const baseProducts = Array.isArray(productsData.products) ? productsData.products : [];
+  const baseById = useRef(new Map<number, Product>());
+  if (baseById.current.size === 0) {
+    baseProducts.forEach((p) => baseById.current.set(p.id, p as Product));
+  }
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -77,13 +82,35 @@ function ProductsContent() {
     setProducts(next);
   };
 
+  const normalizeProduct = (raw: Partial<Product> & { firestoreId?: string }, fallbackId?: number) => {
+    const rawId = Number(raw.id ?? fallbackId ?? 0);
+    const base = rawId ? baseById.current.get(rawId) : undefined;
+    const id = rawId || base?.id || 0;
+    return {
+      ...base,
+      ...raw,
+      id,
+    } as Product;
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
+
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      applyProducts([...cached].sort(sortById));
+      setIsLoading(false);
+    } else if (productsData.products?.length) {
+      const initial = [...(productsData.products as Product[])].sort(sortById);
+      applyProducts(initial);
+      writeCache(initial);
+      setIsLoading(false);
+    }
 
     const seedFromJson = async () => {
       try {
         const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
-        const sorted = [...items].sort(sortById);
+        const sorted = items.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         applyProducts(sorted);
         writeCache(sorted);
         setIsLoading(false);
@@ -105,29 +132,27 @@ function ProductsContent() {
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
-        const data = snapshot.docs.map((d) => ({
-          firestoreId: d.id,
-          ...(d.data() as Product),
-        }));
-        const next = (data as Product[]).slice().sort(sortById);
+        if (snapshot.empty) {
+          seedFromJson();
+          return;
+        }
+        const data = snapshot.docs.map((d) => {
+          const docId = Number(d.id);
+          return normalizeProduct({
+            firestoreId: d.id,
+            ...(d.data() as Product),
+          }, Number.isNaN(docId) ? undefined : docId);
+        });
+        const next = data.slice().sort(sortById);
         applyProducts(next);
+        writeCache(next);
         setIsLoading(false);
       });
     } else {
-      const cached = readCache();
-      if (cached && cached.length > 0) {
-        applyProducts([...cached].sort(sortById));
-        setIsLoading(false);
-      } else if (productsData.products?.length) {
-        const initial = [...(productsData.products as Product[])].sort(sortById);
-        applyProducts(initial);
-        writeCache(initial);
-        setIsLoading(false);
-      }
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
         const parsed = JSON.parse(storedProducts) as Product[];
-        const sorted = [...parsed].sort(sortById);
+        const sorted = parsed.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         applyProducts(sorted);
         writeCache(sorted);
         setIsLoading(false);
