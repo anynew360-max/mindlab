@@ -16,6 +16,7 @@ import {
 import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
+import { getImageUrl } from '@/lib/utils';
 
 type Product = {
   id: number;
@@ -284,7 +285,7 @@ export default function AdminProductManager() {
                     <div className="w-12 h-12 bg-[#181c2a] rounded-lg flex items-center justify-center overflow-hidden border border-[#23263a]">
                       {product.image ? (
                         <img
-                          src={product.image}
+                          src={getImageUrl(product.image)}
                           alt={product.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -596,7 +597,7 @@ export default function AdminProductManager() {
               <label className="border-2 border-dashed border-slate-700 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-yellow-500/50 hover:bg-slate-800/50 transition-all cursor-pointer group">
                 {formData.image ? (
                   <img
-                    src={formData.image}
+                    src={getImageUrl(formData.image)}
                     alt="preview"
                     className="w-40 h-40 object-cover rounded-xl mb-4 border border-slate-700"
                     onError={(e) => {

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/lib/cart';
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { getImageUrl } from '@/lib/utils';
 import productsData from '@/data/products.json';
 import {
   Dialog,
@@ -220,7 +221,7 @@ const NewArrivals = () => {
               {/* Image Container */}
               <div className="relative aspect-[4/5] overflow-hidden bg-gray-800">
                 <img
-                  src={product.image}
+                  src={getImageUrl(product.image)}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   loading="lazy"

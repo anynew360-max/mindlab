@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { CartProvider, useCart } from '../lib/cart';
+import { getImageUrl } from '../lib/utils';
 import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '../lib/firebase';
@@ -315,7 +316,7 @@ function ProductsContent() {
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-gray-800">
                     <img
-                      src={pendingEdits[product.id]?.image || product.image}
+                      src={getImageUrl(pendingEdits[product.id]?.image || product.image)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
@@ -416,7 +417,7 @@ function ProductsContent() {
               {/* Left: Image */}
               <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 bg-gray-800/30 w-[260px] min-w-[180px] max-w-[320px]">
                 <img
-                  src={editIndex === null ? selectedProduct.image : editData.image}
+                  src={getImageUrl(editIndex === null ? selectedProduct.image : editData.image)}
                   alt={selectedProduct.name}
                   className="object-contain w-full max-h-[350px] rounded-xl border border-yellow-500/20 shadow"
                   loading="lazy"

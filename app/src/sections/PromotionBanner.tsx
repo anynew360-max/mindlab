@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Tag, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getImageUrl } from '@/lib/utils';
 import productsData from '@/data/products.json';
 
 const promotionStyles = `
@@ -191,7 +192,7 @@ const PromotionBanner = () => {
           {/* บังคับความสูงบนจอใหญ่ให้คงที่ เพื่อให้ภาพทั้งสองโปรโมชั่นมีขนาดเท่ากัน */}
           <div className="w-full lg:w-1/2 relative h-[300px] lg:h-[600px] order-1 lg:order-2 animate-in-right overflow-hidden">
             <img 
-              src={currentPromo.image} 
+              src={getImageUrl(currentPromo.image)} 
               alt={currentPromo.title}
               className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" 
               loading="lazy"
