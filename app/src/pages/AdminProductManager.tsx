@@ -253,7 +253,14 @@ export default function AdminProductManager() {
                   <td className="p-4">
                     <div className="w-12 h-12 bg-[#181c2a] rounded-lg flex items-center justify-center overflow-hidden border border-[#23263a]">
                       {product.image ? (
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = '/images/placeholder.svg';
+                          }}
+                        />
                       ) : (
                         <ImageIcon className="text-[#23263a]" size={20} />
                       )}
@@ -504,7 +511,14 @@ export default function AdminProductManager() {
               <h3 className="text-lg font-bold text-white mb-4 border-b border-slate-800 pb-2">รูปภาพสินค้า</h3>
               <label className="border-2 border-dashed border-slate-700 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-yellow-500/50 hover:bg-slate-800/50 transition-all cursor-pointer group">
                 {formData.image ? (
-                  <img src={formData.image} alt="preview" className="w-40 h-40 object-cover rounded-xl mb-4 border border-slate-700" />
+                  <img
+                    src={formData.image}
+                    alt="preview"
+                    className="w-40 h-40 object-cover rounded-xl mb-4 border border-slate-700"
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/placeholder.svg';
+                    }}
+                  />
                 ) : (
                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <ImageIcon className="text-slate-500 group-hover:text-yellow-500" size={32} />

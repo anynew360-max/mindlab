@@ -207,7 +207,14 @@ function ProductsContent() {
                   }}
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-gray-800">
-                    <img src={pendingEdits[product.id]?.image || product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img
+                      src={pendingEdits[product.id]?.image || product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        e.currentTarget.src = '/images/placeholder.svg';
+                      }}
+                    />
                     <div className="absolute top-3 left-3 flex flex-col gap-2">
                       {product.isNew && <Badge className="bg-yellow-500 text-gray-900 font-bold">ใหม่</Badge>}
                     </div>
@@ -299,7 +306,14 @@ function ProductsContent() {
             <>
               {/* Left: Image */}
               <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 bg-gray-800/30 w-[260px] min-w-[180px] max-w-[320px]">
-                <img src={editIndex === null ? selectedProduct.image : editData.image} alt={selectedProduct.name} className="object-contain w-full max-h-[350px] rounded-xl border border-yellow-500/20 shadow" />
+                <img
+                  src={editIndex === null ? selectedProduct.image : editData.image}
+                  alt={selectedProduct.name}
+                  className="object-contain w-full max-h-[350px] rounded-xl border border-yellow-500/20 shadow"
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/placeholder.svg';
+                  }}
+                />
                 {user && user.role === 'admin' && editIndex !== null && (
                   <input type="file" accept="image/*" className="mt-2" onChange={async e => {
                     const file = e.target.files?.[0];

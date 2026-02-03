@@ -154,6 +154,9 @@ const NewArrivals = () => {
                   src={product.image}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/placeholder.svg';
+                  }}
                 />
                 
                 {/* Badges */}

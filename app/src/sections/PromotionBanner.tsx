@@ -157,6 +157,9 @@ const PromotionBanner = () => {
               src={currentPromo.image} 
               alt={currentPromo.title}
               className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" 
+              onError={(e) => {
+                e.currentTarget.src = '/images/placeholder.svg';
+              }}
             />
             {/* Overlay ไล่เฉดสีเพื่อให้รูปกลืนกับพื้นหลังฝั่งข้อความเฉพาะบนจอใหญ่ */}
             <div className="hidden lg:block absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-gray-950/50 to-transparent" />
