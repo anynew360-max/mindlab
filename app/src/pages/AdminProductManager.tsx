@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Package, 
   ShoppingCart, 
-  Users, 
   Plus, 
   Search, 
   Edit3, 

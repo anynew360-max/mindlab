@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function Profile() {
 	return (
 		<div className="min-h-screen bg-[#0f172a] text-slate-200 flex items-center justify-center p-6">

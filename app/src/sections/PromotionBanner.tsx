@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Tag, Percent, LogIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Tag, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { LoginSignupModal } from '@/components/LoginSignupModal';
-import { useAuth } from '@/hooks/useAuth';
 
 const promotionStyles = `
   @keyframes fadeInUp {
@@ -62,12 +60,11 @@ interface Promotion {
 const PromotionBanner = () => {
   // Inject animation styles
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const style = document.createElement('style');
-      style.textContent = promotionStyles;
-      document.head.appendChild(style);
-      return () => document.head.removeChild(style);
-    }
+    if (typeof document === 'undefined') return;
+    const style = document.createElement('style');
+    style.textContent = promotionStyles;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
   }, []);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);

@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 // ลบ Firebase ออก ใช้ local/mock user
 import { 
   Mail, 
   Lock, 
-  User, 
   ArrowLeft, 
   Loader2, 
   Key, 
@@ -13,6 +12,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+type MockUser = {
+  name: string;
+  email: string;
+  password: string;
+  role: 'admin' | 'user';
+};
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,13 +32,18 @@ export default function Login() {
   const [error, setError] = useState('');
 
   // Load or initialize mock users from localStorage
-  const defaultUsers = [
+  const defaultUsers: MockUser[] = [
     { name: 'Admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
     { name: 'Demo User', email: 'demo@example.com', password: 'password123', role: 'user' }
   ];
-  const [mockUsers, setMockUsers] = useState(() => {
+  const [mockUsers, setMockUsers] = useState<MockUser[]>(() => {
     const saved = localStorage.getItem('mock_users');
-    return saved ? JSON.parse(saved) : defaultUsers;
+    if (!saved) return defaultUsers;
+    try {
+      return JSON.parse(saved) as MockUser[];
+    } catch {
+      return defaultUsers;
+    }
   });
 
   const handleAuth = async (e: React.FormEvent) => {
