@@ -64,7 +64,9 @@ const PromotionBanner = () => {
     const style = document.createElement('style');
     style.textContent = promotionStyles;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
