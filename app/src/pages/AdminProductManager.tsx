@@ -14,7 +14,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 
 type Product = {
@@ -364,6 +364,7 @@ export default function AdminProductManager() {
       image: editingProduct?.image || ''
     });
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [imageError, setImageError] = useState<string | null>(null);
 
     const handleChange = (
@@ -378,10 +379,45 @@ export default function AdminProductManager() {
       }));
     };
 
+    const resizeImage = async (file: File, maxSize = 1200, quality = 0.8) => {
+      if (!file.type.startsWith('image/')) return file;
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('File read error'));
+        reader.readAsDataURL(file);
+      });
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image load error'));
+        image.src = dataUrl;
+      });
+
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const width = Math.round(img.width * scale);
+      const height = Math.round(img.height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', quality)
+      );
+      if (!blob) return file;
+      return new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' });
+    };
+
     const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
       setImageError(null);
+      setUploadProgress(0);
 
       if (!isFirebaseConfigured) {
         const reader = new FileReader();
@@ -394,9 +430,27 @@ export default function AdminProductManager() {
 
       try {
         setIsUploadingImage(true);
-        const fileRef = ref(storage, `products/${Date.now()}-${file.name}`);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
+        const resized = await resizeImage(file);
+        const fileRef = ref(storage, `products/${Date.now()}-${resized.name}`);
+        const uploadTask = uploadBytesResumable(fileRef, resized, {
+          contentType: resized.type,
+          cacheControl: 'public, max-age=31536000',
+        });
+
+        const url = await new Promise<string>((resolve, reject) => {
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              setUploadProgress(progress);
+            },
+            (error) => reject(error),
+            async () => {
+              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadUrl);
+            }
+          );
+        });
         setFormData((prev) => ({ ...prev, image: url }));
       } catch (error) {
         console.error('Failed to upload image:', error);
@@ -556,7 +610,7 @@ export default function AdminProductManager() {
                 <p className="text-slate-300 font-medium">ลากไฟล์มาวาง หรือ คลิกเพื่อเลือกรูป</p>
                 <p className="text-slate-500 text-xs mt-2">รองรับ JPG, PNG (ขนาดแนะนำ 800x800px)</p>
                 {isUploadingImage && (
-                  <p className="text-yellow-500 text-xs mt-2">กำลังอัปโหลดรูป...</p>
+                  <p className="text-yellow-500 text-xs mt-2">กำลังอัปโหลดรูป... {uploadProgress}%</p>
                 )}
                 {imageError && (
                   <p className="text-red-400 text-xs mt-2">{imageError}</p>

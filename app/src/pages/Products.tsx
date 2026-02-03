@@ -171,6 +171,40 @@ function ProductsContent() {
     localStorage.setItem('products', JSON.stringify(updated));
   };
 
+  const resizeImage = async (file: File, maxSize = 1200, quality = 0.8) => {
+    if (!file.type.startsWith('image/')) return file;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('File read error'));
+      reader.readAsDataURL(file);
+    });
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Image load error'));
+      image.src = dataUrl;
+    });
+
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    const width = Math.round(img.width * scale);
+    const height = Math.round(img.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', quality)
+    );
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' });
+  };
+
   const getImageFromFile = async (file: File) => {
     if (!isFirebaseConfigured) {
       return await new Promise<string>((resolve, reject) => {
@@ -181,8 +215,12 @@ function ProductsContent() {
       });
     }
 
-    const fileRef = ref(storage, `products/${Date.now()}-${file.name}`);
-    await uploadBytes(fileRef, file);
+    const resized = await resizeImage(file);
+    const fileRef = ref(storage, `products/${Date.now()}-${resized.name}`);
+    await uploadBytes(fileRef, resized, {
+      contentType: resized.type,
+      cacheControl: 'public, max-age=31536000',
+    });
     return await getDownloadURL(fileRef);
   };
 
