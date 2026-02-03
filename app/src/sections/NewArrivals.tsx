@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShoppingCart, Sparkles, Eye, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ const NewArrivals = () => {
   const PRODUCTS_CACHE_KEY = 'products_cache_v1';
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
+  const lastIdsRef = useRef('');
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -58,6 +59,13 @@ const NewArrivals = () => {
     }
   };
 
+  const applyProducts = (next: Product[]) => {
+    const ids = next.map((p) => p.id).join(',');
+    if (ids === lastIdsRef.current) return;
+    lastIdsRef.current = ids;
+    setProducts(next);
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
@@ -65,12 +73,12 @@ const NewArrivals = () => {
     if (cached && cached.length > 0) {
       const sortedCached = [...cached].sort(sortById);
       const newProducts = sortedCached.filter((p) => p.isNew);
-      setProducts(newProducts.length > 0 ? newProducts : sortedCached);
+      applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
       setIsLoading(false);
     } else if (productsData.products?.length) {
       const allProducts = [...(productsData.products as Product[])].sort(sortById);
       const newProducts = allProducts.filter((p) => p.isNew);
-      setProducts(newProducts.length > 0 ? newProducts : allProducts);
+      applyProducts(newProducts.length > 0 ? newProducts : allProducts);
       writeCache(allProducts);
       setIsLoading(false);
     }
@@ -80,7 +88,7 @@ const NewArrivals = () => {
         const allProducts: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         const sorted = [...allProducts].sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : sorted);
+        applyProducts(newProducts.length > 0 ? newProducts : sorted);
         writeCache(sorted);
         setIsLoading(false);
 
@@ -109,7 +117,7 @@ const NewArrivals = () => {
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
         const sorted = [...allProducts].sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : sorted);
+        applyProducts(newProducts.length > 0 ? newProducts : sorted);
         writeCache(sorted);
         setIsLoading(false);
       });
@@ -127,7 +135,7 @@ const NewArrivals = () => {
       } else {
         const sorted = [...allProducts].sort(sortById);
         const newProducts = sorted.filter((p: Product) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : sorted);
+        applyProducts(newProducts.length > 0 ? newProducts : sorted);
         setIsLoading(false);
       }
     }

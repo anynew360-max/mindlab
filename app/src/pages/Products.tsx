@@ -1,6 +1,6 @@
 import Header from '../sections/Header';
 import Footer from '../sections/Footer';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -33,6 +33,7 @@ function ProductsContent() {
   const PRODUCTS_CACHE_KEY = 'products_cache_v1';
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
+  const lastIdsRef = useRef('');
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -68,16 +69,23 @@ function ProductsContent() {
     }
   };
 
+  const applyProducts = (next: Product[]) => {
+    const ids = next.map((p) => p.id).join(',');
+    if (ids === lastIdsRef.current) return;
+    lastIdsRef.current = ids;
+    setProducts(next);
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
     const cached = readCache();
     if (cached && cached.length > 0) {
-      setProducts([...cached].sort(sortById));
+      applyProducts([...cached].sort(sortById));
       setIsLoading(false);
     } else if (productsData.products?.length) {
       const initial = [...(productsData.products as Product[])].sort(sortById);
-      setProducts(initial);
+      applyProducts(initial);
       writeCache(initial);
       setIsLoading(false);
     }
@@ -86,7 +94,7 @@ function ProductsContent() {
       try {
         const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         const sorted = [...items].sort(sortById);
-        setProducts(sorted);
+        applyProducts(sorted);
         writeCache(sorted);
         setIsLoading(false);
 
@@ -116,7 +124,7 @@ function ProductsContent() {
           ...(d.data() as Product),
         }));
         const next = (data as Product[]).slice().sort(sortById);
-        setProducts(next);
+        applyProducts(next);
         writeCache(next);
         setIsLoading(false);
       });
@@ -125,7 +133,7 @@ function ProductsContent() {
       if (storedProducts) {
         const parsed = JSON.parse(storedProducts) as Product[];
         const sorted = [...parsed].sort(sortById);
-        setProducts(sorted);
+        applyProducts(sorted);
         writeCache(sorted);
         setIsLoading(false);
       } else {
