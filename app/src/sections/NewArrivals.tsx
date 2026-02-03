@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/lib/cart';
-import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
 import productsData from '@/data/products.json';
@@ -84,8 +84,6 @@ const NewArrivals = () => {
   };
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
-
     const cached = readCache();
     if (cached && cached.length > 0) {
       const sortedCached = cached.map((item) => normalizeProduct(item, item.id)).sort(sortById);
@@ -126,9 +124,10 @@ const NewArrivals = () => {
 
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
-      unsub = onSnapshot(colRef, (snapshot) => {
+      (async () => {
+        const snapshot = await getDocs(colRef);
         if (snapshot.empty) {
-          seedFromJson();
+          await seedFromJson();
           return;
         }
         const allProducts = snapshot.docs.map((d) => {
@@ -140,7 +139,7 @@ const NewArrivals = () => {
         applyProducts(newProducts.length > 0 ? newProducts : sorted);
         writeCache(sorted);
         setIsLoading(false);
-      });
+      })();
     } else {
       const storedProducts = localStorage.getItem('products');
       let allProducts: Product[] = [];
@@ -160,9 +159,7 @@ const NewArrivals = () => {
       }
     }
 
-    return () => {
-      if (unsub) unsub();
-    };
+    return undefined;
   }, []);
 
   const addToCart = (product: Product) => {

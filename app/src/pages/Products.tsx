@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { CartProvider, useCart } from '../lib/cart';
 import { getImageUrl } from '../lib/utils';
-import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '../lib/firebase';
 import productsData from '../data/products.json';
@@ -94,8 +94,6 @@ function ProductsContent() {
   };
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
-
     const cached = readCache();
     if (cached && cached.length > 0) {
       applyProducts([...cached].sort(sortById));
@@ -131,9 +129,10 @@ function ProductsContent() {
 
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
-      unsub = onSnapshot(colRef, (snapshot) => {
+      (async () => {
+        const snapshot = await getDocs(colRef);
         if (snapshot.empty) {
-          seedFromJson();
+          await seedFromJson();
           return;
         }
         const data = snapshot.docs.map((d) => {
@@ -147,7 +146,7 @@ function ProductsContent() {
         applyProducts(next);
         writeCache(next);
         setIsLoading(false);
-      });
+      })();
     } else {
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
@@ -165,9 +164,7 @@ function ProductsContent() {
     const storedUser = localStorage.getItem('auth_user');
     if (storedUser) setUser(JSON.parse(storedUser));
 
-    return () => {
-      if (unsub) unsub();
-    };
+    return undefined;
   }, []);
 
   const handleAddComment = () => {
