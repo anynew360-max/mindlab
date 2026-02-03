@@ -13,7 +13,7 @@ import {
   ArrowLeft,
   ShieldCheck
 } from 'lucide-react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
@@ -52,6 +52,7 @@ export default function AdminProductManager() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [orderCount, setOrderCount] = useState(0);
   const sortById = (a: Product, b: Product) => a.id - b.id;
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     const seedFromJson = async () => {
@@ -73,20 +74,12 @@ export default function AdminProductManager() {
       }
     };
 
-    if (!isFirebaseConfigured) {
-      const stored = localStorage.getItem('products');
-      if (stored) {
-        setProducts(JSON.parse(stored) as Product[]);
-        return;
-      }
-      seedFromJson();
-      return;
-    }
-
-    const colRef = collection(db, 'products');
-    const unsub = onSnapshot(colRef, (snapshot) => {
+    const loadOnceFromFirestore = async () => {
+      const colRef = collection(db, 'products');
+      const snapshot = await getDocs(colRef);
       if (snapshot.empty) {
-        seedFromJson();
+        await seedFromJson();
+        setIsLoadingProducts(false);
         return;
       }
       const data = snapshot.docs.map((d) => ({
@@ -94,9 +87,23 @@ export default function AdminProductManager() {
         ...(d.data() as Product),
       }));
       setProducts((data as Product[]).slice().sort(sortById));
-    });
+      setIsLoadingProducts(false);
+    };
 
-    return () => unsub();
+    if (!isFirebaseConfigured) {
+      const stored = localStorage.getItem('products');
+      if (stored) {
+        setProducts(JSON.parse(stored) as Product[]);
+        setIsLoadingProducts(false);
+        return;
+      }
+      seedFromJson();
+      setIsLoadingProducts(false);
+      return;
+    }
+
+    loadOnceFromFirestore();
+    return;
   }, []);
 
   useEffect(() => {
