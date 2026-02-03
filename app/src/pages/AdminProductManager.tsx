@@ -13,10 +13,11 @@ import {
   ArrowLeft,
   ShieldCheck
 } from 'lucide-react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
+import productsData from '@/data/products.json';
 
 type Product = {
   id: number;
@@ -55,20 +56,8 @@ export default function AdminProductManager() {
   useEffect(() => {
     const seedFromJson = async () => {
       try {
-        const res = await fetch('/data/products.json');
-        const data = await res.json();
-        const items: Product[] = Array.isArray(data.products) ? data.products : [];
+        const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         setProducts([...items].sort(sortById));
-
-        if (!isFirebaseConfigured) return;
-        await Promise.all(
-          items.map((item) =>
-            setDoc(doc(db, 'products', String(item.id)), {
-              ...item,
-              id: item.id,
-            })
-          )
-        );
       } catch {
         // ignore
       }
@@ -86,10 +75,6 @@ export default function AdminProductManager() {
 
     const colRef = collection(db, 'products');
     const unsub = onSnapshot(colRef, (snapshot) => {
-      if (snapshot.empty) {
-        seedFromJson();
-        return;
-      }
       const data = snapshot.docs.map((d) => ({
         firestoreId: d.id,
         ...(d.data() as Product),
@@ -141,6 +126,20 @@ export default function AdminProductManager() {
     const updated = products.filter(p => p.id !== id);
     setProducts(updated);
     localStorage.setItem('products', JSON.stringify(updated));
+  };
+
+  const handleClearAll = async () => {
+    if (!confirm('ต้องการลบสินค้าทั้งหมดหรือไม่?')) return;
+
+    if (isFirebaseConfigured) {
+      const docs = products.map((p) => p.firestoreId).filter(Boolean) as string[];
+      await Promise.all(docs.map((id) => deleteDoc(doc(db, 'products', id))));
+      setProducts([]);
+      return;
+    }
+
+    setProducts([]);
+    localStorage.setItem('products', JSON.stringify([]));
   };
 
   const handleSave = async (formData: ProductFormData) => {
@@ -234,13 +233,21 @@ export default function AdminProductManager() {
           <h1 className="text-3xl font-bold text-white mb-3">จัดการสินค้า</h1>
           <p className="text-[#bfc8e6] text-sm">สินค้าทั้งหมด {products.length} รายการ</p>
         </div>
-        <button 
-          onClick={handleAddNew}
-          className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-[#10131c] px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg shadow-yellow-500/20"
-        >
-          <Plus size={20} />
-          <span>เพิ่มสินค้าใหม่</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button 
+            onClick={handleAddNew}
+            className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-[#10131c] px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg shadow-yellow-500/20"
+          >
+            <Plus size={20} />
+            <span>เพิ่มสินค้าใหม่</span>
+          </button>
+          <button
+            onClick={handleClearAll}
+            className="flex items-center space-x-2 bg-red-500/90 hover:bg-red-500 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg shadow-red-500/20"
+          >
+            ลบสินค้าทั้งหมด
+          </button>
+        </div>
       </div>
       <div className="bg-[#181c2a] p-4 rounded-xl border border-[#23263a] mb-6 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">

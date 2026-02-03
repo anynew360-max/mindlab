@@ -32,7 +32,6 @@ const NewArrivals = () => {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
-  const lastCountRef = useRef(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -65,26 +64,11 @@ const NewArrivals = () => {
     const ids = next.map((p) => p.id).join(',');
     if (ids === lastIdsRef.current) return;
     lastIdsRef.current = ids;
-    lastCountRef.current = next.length;
     setProducts(next);
   };
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
-
-    const cached = readCache();
-    if (cached && cached.length > 0) {
-      const sortedCached = [...cached].sort(sortById);
-      const newProducts = sortedCached.filter((p) => p.isNew);
-      applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
-      setIsLoading(false);
-    } else if (productsData.products?.length) {
-      const allProducts = [...(productsData.products as Product[])].sort(sortById);
-      const newProducts = allProducts.filter((p) => p.isNew);
-      applyProducts(newProducts.length > 0 ? newProducts : allProducts);
-      writeCache(allProducts);
-      setIsLoading(false);
-    }
 
     const seedFromJson = async () => {
       try {
@@ -113,20 +97,27 @@ const NewArrivals = () => {
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
-        if (snapshot.empty) {
-          seedFromJson();
-          return;
-        }
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
         const sorted = [...allProducts].sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
         const next = newProducts.length > 0 ? newProducts : sorted;
-        if (lastCountRef.current > 0 && next.length < lastCountRef.current) return;
         applyProducts(next);
-        writeCache(sorted);
         setIsLoading(false);
       });
     } else {
+      const cached = readCache();
+      if (cached && cached.length > 0) {
+        const sortedCached = [...cached].sort(sortById);
+        const newProducts = sortedCached.filter((p) => p.isNew);
+        applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
+        setIsLoading(false);
+      } else if (productsData.products?.length) {
+        const allProducts = [...(productsData.products as Product[])].sort(sortById);
+        const newProducts = allProducts.filter((p) => p.isNew);
+        applyProducts(newProducts.length > 0 ? newProducts : allProducts);
+        writeCache(allProducts);
+        setIsLoading(false);
+      }
       const storedProducts = localStorage.getItem('products');
       let allProducts: Product[] = [];
       if (storedProducts) {

@@ -35,7 +35,6 @@ function ProductsContent() {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
-  const lastCountRef = useRef(0);
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -75,23 +74,11 @@ function ProductsContent() {
     const ids = next.map((p) => p.id).join(',');
     if (ids === lastIdsRef.current) return;
     lastIdsRef.current = ids;
-    lastCountRef.current = next.length;
     setProducts(next);
   };
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
-
-    const cached = readCache();
-    if (cached && cached.length > 0) {
-      applyProducts([...cached].sort(sortById));
-      setIsLoading(false);
-    } else if (productsData.products?.length) {
-      const initial = [...(productsData.products as Product[])].sort(sortById);
-      applyProducts(initial);
-      writeCache(initial);
-      setIsLoading(false);
-    }
 
     const seedFromJson = async () => {
       try {
@@ -118,21 +105,25 @@ function ProductsContent() {
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
-        if (snapshot.empty) {
-          seedFromJson();
-          return;
-        }
         const data = snapshot.docs.map((d) => ({
           firestoreId: d.id,
           ...(d.data() as Product),
         }));
         const next = (data as Product[]).slice().sort(sortById);
-        if (lastCountRef.current > 0 && next.length < lastCountRef.current) return;
         applyProducts(next);
-        writeCache(next);
         setIsLoading(false);
       });
     } else {
+      const cached = readCache();
+      if (cached && cached.length > 0) {
+        applyProducts([...cached].sort(sortById));
+        setIsLoading(false);
+      } else if (productsData.products?.length) {
+        const initial = [...(productsData.products as Product[])].sort(sortById);
+        applyProducts(initial);
+        writeCache(initial);
+        setIsLoading(false);
+      }
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
         const parsed = JSON.parse(storedProducts) as Product[];
