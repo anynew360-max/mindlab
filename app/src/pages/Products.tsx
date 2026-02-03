@@ -5,7 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { CartProvider, useCart } from '../lib/cart';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '../lib/firebase';
 import {
@@ -46,9 +46,35 @@ function ProductsContent() {
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
+    const seedFromJson = async () => {
+      try {
+        const res = await fetch('/data/products.json');
+        const data = await res.json();
+        const items: Product[] = Array.isArray(data.products) ? data.products : [];
+        setProducts(items);
+        setIsLoading(false);
+
+        if (!isFirebaseConfigured) return;
+        await Promise.all(
+          items.map((item) =>
+            setDoc(doc(db, 'products', String(item.id)), {
+              ...item,
+              id: item.id,
+            })
+          )
+        );
+      } catch {
+        setIsLoading(false);
+      }
+    };
+
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
+        if (snapshot.empty) {
+          seedFromJson();
+          return;
+        }
         const data = snapshot.docs.map((d) => ({
           firestoreId: d.id,
           ...(d.data() as Product),
@@ -62,13 +88,7 @@ function ProductsContent() {
         setProducts(JSON.parse(storedProducts));
         setIsLoading(false);
       } else {
-        fetch('/data/products.json')
-          .then((res) => res.json())
-          .then((data) => {
-            setProducts(data.products);
-            setIsLoading(false);
-          })
-          .catch(() => setIsLoading(false));
+        seedFromJson();
       }
     }
 

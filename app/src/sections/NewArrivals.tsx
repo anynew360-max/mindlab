@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/lib/cart';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   Dialog,
@@ -36,9 +36,37 @@ const NewArrivals = () => {
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
+    const seedFromJson = async () => {
+      try {
+        const res = await fetch('/data/products.json');
+        const data = await res.json();
+        const allProducts: Product[] = Array.isArray(data.products) ? data.products : [];
+        const newProducts = allProducts.filter((p) => p.isNew);
+        setProducts(newProducts.length > 0 ? newProducts : allProducts);
+        setIsLoading(false);
+
+        if (!isFirebaseConfigured) return;
+        await Promise.all(
+          allProducts.map((item) =>
+            setDoc(doc(db, 'products', String(item.id)), {
+              ...item,
+              id: item.id,
+            })
+          )
+        );
+      } catch (err) {
+        console.error('Error loading products:', err);
+        setIsLoading(false);
+      }
+    };
+
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
       unsub = onSnapshot(colRef, (snapshot) => {
+        if (snapshot.empty) {
+          seedFromJson();
+          return;
+        }
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
         const newProducts = allProducts.filter((p) => p.isNew);
         setProducts(newProducts.length > 0 ? newProducts : allProducts);
@@ -52,18 +80,7 @@ const NewArrivals = () => {
       }
       // fallback to fetch if no localStorage
       if (allProducts.length === 0) {
-        fetch('/data/products.json')
-          .then((res) => res.json())
-          .then((data) => {
-            allProducts = data.products;
-            const newProducts = allProducts.filter((p: Product) => p.isNew);
-            setProducts(newProducts.length > 0 ? newProducts : allProducts);
-            setIsLoading(false);
-          })
-          .catch((err) => {
-            console.error('Error loading products:', err);
-            setIsLoading(false);
-          });
+        seedFromJson();
       } else {
         const newProducts = allProducts.filter((p: Product) => p.isNew);
         setProducts(newProducts.length > 0 ? newProducts : allProducts);
