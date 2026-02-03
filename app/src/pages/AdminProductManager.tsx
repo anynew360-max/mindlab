@@ -13,7 +13,7 @@ import {
   ArrowLeft,
   ShieldCheck
 } from 'lucide-react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 
@@ -51,14 +51,43 @@ export default function AdminProductManager() {
   const [orderCount, setOrderCount] = useState(0);
 
   useEffect(() => {
+    const seedFromJson = async () => {
+      try {
+        const res = await fetch('/data/products.json');
+        const data = await res.json();
+        const items: Product[] = Array.isArray(data.products) ? data.products : [];
+        setProducts(items);
+
+        if (!isFirebaseConfigured) return;
+        await Promise.all(
+          items.map((item) =>
+            setDoc(doc(db, 'products', String(item.id)), {
+              ...item,
+              id: item.id,
+            })
+          )
+        );
+      } catch {
+        // ignore
+      }
+    };
+
     if (!isFirebaseConfigured) {
       const stored = localStorage.getItem('products');
-      if (stored) setProducts(JSON.parse(stored) as Product[]);
+      if (stored) {
+        setProducts(JSON.parse(stored) as Product[]);
+        return;
+      }
+      seedFromJson();
       return;
     }
 
     const colRef = collection(db, 'products');
     const unsub = onSnapshot(colRef, (snapshot) => {
+      if (snapshot.empty) {
+        seedFromJson();
+        return;
+      }
       const data = snapshot.docs.map((d) => ({
         firestoreId: d.id,
         ...(d.data() as Product),
