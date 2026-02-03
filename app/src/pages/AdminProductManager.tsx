@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Package, 
@@ -52,6 +52,15 @@ export default function AdminProductManager() {
   const [orderCount, setOrderCount] = useState(0);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const sortById = (a: Product, b: Product) => a.id - b.id;
+  const lastIdsRef = useRef('');
+  const hasSeededRef = useRef(false);
+
+  const applyProducts = (next: Product[]) => {
+    const ids = next.map((p) => p.id).join(',');
+    if (ids === lastIdsRef.current) return;
+    lastIdsRef.current = ids;
+    setProducts(next);
+  };
 
   useEffect(() => {
     const seedFromJson = async () => {
@@ -59,7 +68,8 @@ export default function AdminProductManager() {
         const res = await fetch('/data/products.json');
         const data = await res.json();
         const items: Product[] = Array.isArray(data.products) ? data.products : [];
-        setProducts([...items].sort(sortById));
+        applyProducts([...items].sort(sortById));
+        hasSeededRef.current = true;
 
         if (!isFirebaseConfigured) return;
         await Promise.all(
@@ -78,7 +88,7 @@ export default function AdminProductManager() {
     if (!isFirebaseConfigured) {
       const stored = localStorage.getItem('products');
       if (stored) {
-        setProducts(JSON.parse(stored) as Product[]);
+        applyProducts((JSON.parse(stored) as Product[]).slice().sort(sortById));
         return;
       }
       seedFromJson();
@@ -91,14 +101,17 @@ export default function AdminProductManager() {
       (snapshot) => {
         setRealtimeError(null);
         if (snapshot.empty) {
-          seedFromJson();
+          if (!hasSeededRef.current) {
+            seedFromJson();
+          }
           return;
         }
         const data = snapshot.docs.map((d) => ({
           firestoreId: d.id,
           ...(d.data() as Product),
         }));
-        setProducts((data as Product[]).slice().sort(sortById));
+        applyProducts((data as Product[]).slice().sort(sortById));
+        hasSeededRef.current = true;
       },
       (error) => {
         console.error('Realtime products error:', error);
