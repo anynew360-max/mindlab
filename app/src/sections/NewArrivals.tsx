@@ -29,6 +29,7 @@ interface Product {
 const NewArrivals = () => {
   const PRODUCTS_CACHE_KEY = 'products_cache_v1';
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+  const sortById = (a: Product, b: Product) => a.id - b.id;
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -62,11 +63,12 @@ const NewArrivals = () => {
 
     const cached = readCache();
     if (cached && cached.length > 0) {
-      const newProducts = cached.filter((p) => p.isNew);
-      setProducts(newProducts.length > 0 ? newProducts : cached);
+      const sortedCached = [...cached].sort(sortById);
+      const newProducts = sortedCached.filter((p) => p.isNew);
+      setProducts(newProducts.length > 0 ? newProducts : sortedCached);
       setIsLoading(false);
     } else if (productsData.products?.length) {
-      const allProducts = productsData.products as Product[];
+      const allProducts = [...(productsData.products as Product[])].sort(sortById);
       const newProducts = allProducts.filter((p) => p.isNew);
       setProducts(newProducts.length > 0 ? newProducts : allProducts);
       writeCache(allProducts);
@@ -76,9 +78,10 @@ const NewArrivals = () => {
     const seedFromJson = async () => {
       try {
         const allProducts: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
-        const newProducts = allProducts.filter((p) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : allProducts);
-        writeCache(allProducts);
+        const sorted = [...allProducts].sort(sortById);
+        const newProducts = sorted.filter((p) => p.isNew);
+        setProducts(newProducts.length > 0 ? newProducts : sorted);
+        writeCache(sorted);
         setIsLoading(false);
 
         if (!isFirebaseConfigured) return;
@@ -104,24 +107,27 @@ const NewArrivals = () => {
           return;
         }
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
-        const newProducts = allProducts.filter((p) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : allProducts);
-        writeCache(allProducts);
+        const sorted = [...allProducts].sort(sortById);
+        const newProducts = sorted.filter((p) => p.isNew);
+        setProducts(newProducts.length > 0 ? newProducts : sorted);
+        writeCache(sorted);
         setIsLoading(false);
       });
     } else {
       const storedProducts = localStorage.getItem('products');
       let allProducts: Product[] = [];
       if (storedProducts) {
-        allProducts = JSON.parse(storedProducts);
-        writeCache(allProducts);
+        allProducts = JSON.parse(storedProducts) as Product[];
+        const sorted = [...allProducts].sort(sortById);
+        writeCache(sorted);
       }
       // fallback to fetch if no localStorage
       if (allProducts.length === 0) {
         seedFromJson();
       } else {
-        const newProducts = allProducts.filter((p: Product) => p.isNew);
-        setProducts(newProducts.length > 0 ? newProducts : allProducts);
+        const sorted = [...allProducts].sort(sortById);
+        const newProducts = sorted.filter((p: Product) => p.isNew);
+        setProducts(newProducts.length > 0 ? newProducts : sorted);
         setIsLoading(false);
       }
     }

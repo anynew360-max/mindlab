@@ -49,6 +49,7 @@ export default function AdminProductManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [orderCount, setOrderCount] = useState(0);
+  const sortById = (a: Product, b: Product) => a.id - b.id;
 
   useEffect(() => {
     const seedFromJson = async () => {
@@ -56,7 +57,7 @@ export default function AdminProductManager() {
         const res = await fetch('/data/products.json');
         const data = await res.json();
         const items: Product[] = Array.isArray(data.products) ? data.products : [];
-        setProducts(items);
+        setProducts([...items].sort(sortById));
 
         if (!isFirebaseConfigured) return;
         await Promise.all(
@@ -92,7 +93,7 @@ export default function AdminProductManager() {
         firestoreId: d.id,
         ...(d.data() as Product),
       }));
-      setProducts(data as Product[]);
+      setProducts((data as Product[]).slice().sort(sortById));
     });
 
     return () => unsub();

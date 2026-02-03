@@ -32,6 +32,7 @@ interface Product {
 function ProductsContent() {
   const PRODUCTS_CACHE_KEY = 'products_cache_v1';
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+  const sortById = (a: Product, b: Product) => a.id - b.id;
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -72,19 +73,21 @@ function ProductsContent() {
 
     const cached = readCache();
     if (cached && cached.length > 0) {
-      setProducts(cached);
+      setProducts([...cached].sort(sortById));
       setIsLoading(false);
     } else if (productsData.products?.length) {
-      setProducts(productsData.products as Product[]);
-      writeCache(productsData.products as Product[]);
+      const initial = [...(productsData.products as Product[])].sort(sortById);
+      setProducts(initial);
+      writeCache(initial);
       setIsLoading(false);
     }
 
     const seedFromJson = async () => {
       try {
         const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
-        setProducts(items);
-        writeCache(items);
+        const sorted = [...items].sort(sortById);
+        setProducts(sorted);
+        writeCache(sorted);
         setIsLoading(false);
 
         if (!isFirebaseConfigured) return;
@@ -112,7 +115,7 @@ function ProductsContent() {
           firestoreId: d.id,
           ...(d.data() as Product),
         }));
-        const next = data as Product[];
+        const next = (data as Product[]).slice().sort(sortById);
         setProducts(next);
         writeCache(next);
         setIsLoading(false);
@@ -120,9 +123,10 @@ function ProductsContent() {
     } else {
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
-        const parsed = JSON.parse(storedProducts);
-        setProducts(parsed);
-        writeCache(parsed);
+        const parsed = JSON.parse(storedProducts) as Product[];
+        const sorted = [...parsed].sort(sortById);
+        setProducts(sorted);
+        writeCache(sorted);
         setIsLoading(false);
       } else {
         seedFromJson();
