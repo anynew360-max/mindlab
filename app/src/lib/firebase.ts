@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyB988DJ14O5ttzP-bsUTQ75NiJPig3GKys",
   authDomain: "mindlab-77599.firebaseapp.com",
   projectId: "mindlab-77599",
-  storageBucket: "mindlab-77599.firebasestorage.app",
+  storageBucket: "mindlab-77599.appspot.com",
   messagingSenderId: "729157081825",
   appId: "1:729157081825:web:f1cf01e251c83a100cf5a0",
   measurementId: "G-FKZQNT4FJY"
