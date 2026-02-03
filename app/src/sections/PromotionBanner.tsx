@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Tag, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import productsData from '@/data/products.json';
 
 const promotionStyles = `
   @keyframes fadeInUp {
@@ -60,6 +61,7 @@ interface Promotion {
 const PromotionBanner = () => {
   const PROMO_CACHE_KEY = 'promotions_cache_v1';
   const PROMO_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+  const hasStaticPromos = Array.isArray(productsData.promotions) && productsData.promotions.length > 0;
   // Inject animation styles
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -70,9 +72,9 @@ const PromotionBanner = () => {
       document.head.removeChild(style);
     };
   }, []);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>(hasStaticPromos ? (productsData.promotions as Promotion[]) : []);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!hasStaticPromos);
 
   const readCache = () => {
     try {
@@ -99,6 +101,10 @@ const PromotionBanner = () => {
     const cached = readCache();
     if (cached && cached.length > 0) {
       setPromotions(cached);
+      setIsLoading(false);
+    } else if (hasStaticPromos) {
+      setPromotions(productsData.promotions as Promotion[]);
+      writeCache(productsData.promotions as Promotion[]);
       setIsLoading(false);
     }
 

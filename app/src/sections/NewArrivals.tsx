@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/lib/cart';
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
+import productsData from '@/data/products.json';
 import {
   Dialog,
   DialogContent,
@@ -64,13 +65,17 @@ const NewArrivals = () => {
       const newProducts = cached.filter((p) => p.isNew);
       setProducts(newProducts.length > 0 ? newProducts : cached);
       setIsLoading(false);
+    } else if (productsData.products?.length) {
+      const allProducts = productsData.products as Product[];
+      const newProducts = allProducts.filter((p) => p.isNew);
+      setProducts(newProducts.length > 0 ? newProducts : allProducts);
+      writeCache(allProducts);
+      setIsLoading(false);
     }
 
     const seedFromJson = async () => {
       try {
-        const res = await fetch('/data/products.json');
-        const data = await res.json();
-        const allProducts: Product[] = Array.isArray(data.products) ? data.products : [];
+        const allProducts: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         const newProducts = allProducts.filter((p) => p.isNew);
         setProducts(newProducts.length > 0 ? newProducts : allProducts);
         writeCache(allProducts);

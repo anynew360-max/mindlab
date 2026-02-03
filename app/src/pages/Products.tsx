@@ -8,6 +8,7 @@ import { CartProvider, useCart } from '../lib/cart';
 import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '../lib/firebase';
+import productsData from '../data/products.json';
 import {
   Dialog,
   DialogContent,
@@ -73,13 +74,15 @@ function ProductsContent() {
     if (cached && cached.length > 0) {
       setProducts(cached);
       setIsLoading(false);
+    } else if (productsData.products?.length) {
+      setProducts(productsData.products as Product[]);
+      writeCache(productsData.products as Product[]);
+      setIsLoading(false);
     }
 
     const seedFromJson = async () => {
       try {
-        const res = await fetch('/data/products.json');
-        const data = await res.json();
-        const items: Product[] = Array.isArray(data.products) ? data.products : [];
+        const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         setProducts(items);
         writeCache(items);
         setIsLoading(false);
