@@ -26,6 +26,8 @@ interface Product {
 }
 
 const NewArrivals = () => {
+  const PRODUCTS_CACHE_KEY = 'products_cache_v1';
+  const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -33,8 +35,36 @@ const NewArrivals = () => {
   const { addItem, items } = useCart();
   const navigate = useNavigate();
 
+  const readCache = () => {
+    try {
+      const raw = localStorage.getItem(PRODUCTS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { data: Product[]; ts: number };
+      if (!Array.isArray(parsed.data)) return null;
+      if (Date.now() - parsed.ts > PRODUCTS_CACHE_TTL) return null;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCache = (data: Product[]) => {
+    try {
+      localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
+
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      const newProducts = cached.filter((p) => p.isNew);
+      setProducts(newProducts.length > 0 ? newProducts : cached);
+      setIsLoading(false);
+    }
 
     const seedFromJson = async () => {
       try {
@@ -43,6 +73,7 @@ const NewArrivals = () => {
         const allProducts: Product[] = Array.isArray(data.products) ? data.products : [];
         const newProducts = allProducts.filter((p) => p.isNew);
         setProducts(newProducts.length > 0 ? newProducts : allProducts);
+        writeCache(allProducts);
         setIsLoading(false);
 
         if (!isFirebaseConfigured) return;
@@ -70,6 +101,7 @@ const NewArrivals = () => {
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
         const newProducts = allProducts.filter((p) => p.isNew);
         setProducts(newProducts.length > 0 ? newProducts : allProducts);
+        writeCache(allProducts);
         setIsLoading(false);
       });
     } else {
@@ -77,6 +109,7 @@ const NewArrivals = () => {
       let allProducts: Product[] = [];
       if (storedProducts) {
         allProducts = JSON.parse(storedProducts);
+        writeCache(allProducts);
       }
       // fallback to fetch if no localStorage
       if (allProducts.length === 0) {
@@ -171,6 +204,8 @@ const NewArrivals = () => {
                   src={product.image}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholder.svg';
                   }}

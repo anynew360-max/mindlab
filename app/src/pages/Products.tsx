@@ -29,6 +29,8 @@ interface Product {
 
 
 function ProductsContent() {
+  const PRODUCTS_CACHE_KEY = 'products_cache_v1';
+  const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -43,8 +45,35 @@ function ProductsContent() {
   const [pendingEdits, setPendingEdits] = useState<{ [id: number]: Product }>({});
   const [user, setUser] = useState<any>(null);
 
+  const readCache = () => {
+    try {
+      const raw = localStorage.getItem(PRODUCTS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { data: Product[]; ts: number };
+      if (!Array.isArray(parsed.data)) return null;
+      if (Date.now() - parsed.ts > PRODUCTS_CACHE_TTL) return null;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCache = (data: Product[]) => {
+    try {
+      localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     let unsub: (() => void) | undefined;
+
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      setProducts(cached);
+      setIsLoading(false);
+    }
 
     const seedFromJson = async () => {
       try {
@@ -52,6 +81,7 @@ function ProductsContent() {
         const data = await res.json();
         const items: Product[] = Array.isArray(data.products) ? data.products : [];
         setProducts(items);
+        writeCache(items);
         setIsLoading(false);
 
         if (!isFirebaseConfigured) return;
@@ -79,13 +109,17 @@ function ProductsContent() {
           firestoreId: d.id,
           ...(d.data() as Product),
         }));
-        setProducts(data as Product[]);
+        const next = data as Product[];
+        setProducts(next);
+        writeCache(next);
         setIsLoading(false);
       });
     } else {
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
-        setProducts(JSON.parse(storedProducts));
+        const parsed = JSON.parse(storedProducts);
+        setProducts(parsed);
+        writeCache(parsed);
         setIsLoading(false);
       } else {
         seedFromJson();
@@ -231,6 +265,8 @@ function ProductsContent() {
                       src={pendingEdits[product.id]?.image || product.image}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         e.currentTarget.src = '/images/placeholder.svg';
                       }}
@@ -330,6 +366,8 @@ function ProductsContent() {
                   src={editIndex === null ? selectedProduct.image : editData.image}
                   alt={selectedProduct.name}
                   className="object-contain w-full max-h-[350px] rounded-xl border border-yellow-500/20 shadow"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholder.svg';
                   }}

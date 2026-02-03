@@ -58,6 +58,8 @@ interface Promotion {
 }
 
 const PromotionBanner = () => {
+  const PROMO_CACHE_KEY = 'promotions_cache_v1';
+  const PROMO_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   // Inject animation styles
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -72,11 +74,40 @@ const PromotionBanner = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  const readCache = () => {
+    try {
+      const raw = localStorage.getItem(PROMO_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { data: Promotion[]; ts: number };
+      if (!Array.isArray(parsed.data)) return null;
+      if (Date.now() - parsed.ts > PROMO_CACHE_TTL) return null;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCache = (data: Promotion[]) => {
+    try {
+      localStorage.setItem(PROMO_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      setPromotions(cached);
+      setIsLoading(false);
+    }
+
     fetch('/data/products.json')
       .then((res) => res.json())
       .then((data) => {
-        setPromotions(data.promotions || []);
+        const next = data.promotions || [];
+        setPromotions(next);
+        writeCache(next);
         setIsLoading(false);
       })
       .catch((err) => {
@@ -157,6 +188,8 @@ const PromotionBanner = () => {
               src={currentPromo.image} 
               alt={currentPromo.title}
               className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" 
+              loading="lazy"
+              decoding="async"
               onError={(e) => {
                 e.currentTarget.src = '/images/placeholder.svg';
               }}
