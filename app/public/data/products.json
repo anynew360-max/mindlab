@@ -1,0 +1,125 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "(Pre-order) Battle of Talingchan Selection02",
+      "category": "Battle of Talingchan",
+      "price": 790,
+      "image": "https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/611156676_122118646251042335_3625170919164614287_n.jpg?_nc_cat=100&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHscO4EG7BqY2ZwqoirBAQEKCqEHhpK97coKoQeGkr3t6RutWKYtKLepg99Ih7hwJ_UF2gL57XAXphDTNLeiHju&_nc_ohc=K_pMCBVhKn8Q7kNvwExp56T&_nc_oc=AdmOubAUROQJDUBPNIct0GawnIBxDPXqV7XOTZVJU2vVr6DieGPoEZrnQ4-mbXF-tLs&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=3Hu1269VQb9N3eUhBSqJGA&oh=00_AfrGhu-HENJZIau2r5IxJG4Ladk8UnPtQ3P-9NWgHrexpQ&oe=69815B06",
+      "isNew": true,
+      "description": "More Details Selection02"
+    },
+    {
+      "id": 2,
+      "name": "(Pre order) Starter Deck ex เมก้าลูคาริโอ (MAAL)",
+      "category": "Pokemon",
+      "price": 180,
+      "originalPrice": 190,
+      "image": "https://scontent.fbkk29-6.fna.fbcdn.net/v/t39.30808-6/617353852_122120687163042335_6873732054006022256_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeGT6uX0UArWGEyGD9h_NPbqwtXRJ2L7tSnC1dEnYvu1KaeyN9407UR9gb3XyKd-YNFQK0nJfNTItJAmfmMqVV8h&_nc_ohc=1PUsXO7cXIEQ7kNvwGTdqG0&_nc_oc=AdnIVqSSzVxjLytVUQfJjRCmyQ9t5DqWCn_6ifVw-UBUk3fvxaf--xnmDvJ6UZo-y6c&_nc_zt=23&_nc_ht=scontent.fbkk29-6.fna&_nc_gid=4e7F9p63PkPRPGECtQby8w&oh=00_AfpS_no01HfjoEsAuGTt2qGAO8u2LtkOnfPz4Tcpqo6X2g&oe=6980C613",
+      "isNew": true,
+      "description": "Starter Deck ex"
+    },
+    {
+      "id": 3,
+      "name": "(Pre order)Starter Deck ex เมก้าฟุชิกิบานะ (MAAF)",
+      "category": "Pokemon",
+      "price": 180,
+      "originalPrice": 190,
+      "image": "https://scontent.fbkk29-5.fna.fbcdn.net/v/t39.30808-6/617883643_122120687205042335_2517870973770718273_n.jpg?_nc_cat=107&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeG__36yGnKexyN7ZFJbQRHLBQF1BuR4eUsFAXUG5Hh5SxfCM9NKtIrgO2qDnHTTjEMyo9vzBi-o8dQ1bt6uuBS6&_nc_ohc=pwDr9km1Y00Q7kNvwHA_xBh&_nc_oc=AdkVG-FQrkYaZ7tEmjhl-XG4DC56BUfr_vOTjnQbe4SWzTBBCTLDq3otAhBrh271iy4&_nc_zt=23&_nc_ht=scontent.fbkk29-5.fna&_nc_gid=ckpCbvNG7FIdxIRuoeztuw&oh=00_Afqp3i6bajpm9AkR0KDgWYyYIdErmlOSZtHMbhY_FHF2QQ&oe=6980DF60",
+      "isNew": true,
+      "description": "Starter Deck ex"
+    },
+    {
+      "id": 4,
+      "name": "(Pre order) Battle of Talingchan KD01",
+      "category": "Battle of Talingchan",
+      "price": 500,
+      "image": "https://scontent.fbkk29-4.fna.fbcdn.net/v/t39.30808-6/612233233_122118403287042335_4159850381922967566_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeGZUZ0up7yszFHVdR2LjD6zA5hUS8sMfnsDmFRLywx-ex2E0p-c02QIXC0yiqQODtk50ybZF3lJ6gm5EZFs9qnj&_nc_ohc=6RXf50f3R1kQ7kNvwHCevZY&_nc_oc=AdkjBtGDQjISEuvCh5KmLcPR_AFvDIk2_SBklgzBrwaZZvkWDWsbuHHI43dJq7uTZ64&_nc_zt=23&_nc_ht=scontent.fbkk29-4.fna&_nc_gid=pIxT72lbPD3TMZcATFpn9g&oh=00_AfrcG6yv2vKgEdYK_-rI2z3cTC-1zcOu_5MrIOU3D2Oxmw&oe=6980B520",
+      "isNew": true,
+      "description": "Starter Deck Battle of Talingchan"
+    },
+    {
+      "id": 5,
+      "name": "กล่องไคริว",
+      "category": "Pokemon",
+      "price": 1600,
+      "image": "https://assets.pokemon.com/assets/cms2/img/cards/web/XY12/XY12_EN_1.png",
+      "isNew": false,
+      "description": "Booster Pack ใหม่ล่าสุด"
+    },
+    {
+      "id": 6,
+      "name": "Yu-Gi-Oh! Structure Deck",
+      "category": "Yu-Gi-Oh!",
+      "price": 350,
+      "image": "https://images-na.ssl-images-amazon.com/images/I/91FQwZ5FJzL._AC_SL1500_.jpg",
+      "isNew": false,
+      "description": "Structure Deck สำหรับผู้เล่นใหม่"
+    },
+    {
+      "id": 7,
+      "name": "One Piece Card Game Romance Dawn Booster",
+      "category": "One Piece",
+      "price": 150,
+      "image": "https://static.wikia.nocookie.net/onepiece/images/7/7e/OP01-001.png",
+      "isNew": false,
+      "description": "บูสเตอร์การ์ดวันพีซ"
+    },
+    {
+      "id": 8,
+      "name": "Magic: The Gathering Starter Kit 2023",
+      "category": "Magic",
+      "price": 499,
+      "image": "https://product-images.tcgplayer.com/fit-in/437x437/568964.jpg",
+      "isNew": false,
+      "description": "ชุดเริ่มต้น Magic 2023"
+    },
+    {
+      "id": 9,
+      "name": "Sleeves การ์ดใส 100 ใบ",
+      "category": "Accessories",
+      "price": 80,
+      "image": "https://cf.shopee.co.th/file/0e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+      "isNew": false,
+      "description": "ซองใส่การ์ด 100 ใบ"
+    },
+    {
+      "id": 10,
+      "name": "Deck Box กล่องใส่การ์ด",
+      "category": "Accessories",
+      "price": 120,
+      "image": "https://cf.shopee.co.th/file/0e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+      "isNew": false,
+      "description": "กล่องใส่การ์ดอย่างดี"
+    }
+  ],
+  "promotions": [
+    {
+      "id": 1,
+      "title": "BATTLE OF TALINGCHAN",
+      "subtitle": "ค่าสมัคร 200 THB",
+      "description": "งานแข่งวันอาทิตย์ที่ 1 กุมภาพันธ์",
+      "image": "https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/619294527_122121222597042335_3414589160143142053_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHNMYQ-X3OXDb7LRM0S4liPzyU_IR-j9g_PJT8hH6P2D74gUDvzzg6xN-P73OgP7dToXkOFBqYB5ySqCUs0XDRa&_nc_ohc=-7Q7rr8PzZAQ7kNvwFYmJaX&_nc_oc=Adlg3dCnJ-g7-f_fds4_KZc4--HhNWqSovXweXKKqYr_WBr-y-I4QI5y_Th8J4lzkJc&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=RJlEss3jF_H5w591oJJdXQ&oh=00_AfoMQJPAUEByBQ5X5v06Z3_f3igyvGW4RW1t8Z69Py80TA&oe=697FF1AC",
+      "discount": "50%",
+      "code": "MINDLAB50"
+    },
+    {
+      "id": 2,
+      "title": "POKEMON TCG GYM",
+      "subtitle": "ค่าสมัคร 200 THB",
+      "description": "งานแข่งวันอาทิตย์ที่ 1 กุมภาพันธ์",
+      "image": "https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/622810917_122121222555042335_7455413609202784551_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeE5AdtK_FFmHZ0pCiOqELi_zBpiAuL5x4_MGmIC4vnHj12bxgLr5U_j-RshqXvBW_qCkteEdmrQAkwxIDN0AnED&_nc_ohc=1RM3GHn6yaIQ7kNvwFySSm_&_nc_oc=AdlZkRT_0euj7TvoBcYSyZuXvBWCpC1ZOSkH_yCEUZ6TU6Qqh2PUPh4XsXA7jS_qnjo&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=XVP9zp4JZhDmyXaCD9rDGQ&oh=00_Afrcj0xDFCnLRk9JxREnVHeYxr8kh1cRJOBnDQ1T2pOy-A&oe=697FD4FB",
+      "discount": "10%",
+      "code": "NEWMEMBER"
+    }
+  ],
+  "shopInfo": {
+    "name": "Mindlab Boardgames and Card Games",
+    "address": "25/28-29 ถ.สุเรนทร์ ต.สบตุ๋ย อ.เมือง จ.ลำปาง, Lampang, Thailand, 52100",
+    "phone": "088-268-5394",
+    "email": "mindlablampang@gmail.com",
+    "openingHours": "จันทร์-อาทิตย์: 11:30 - 19:00 น.",
+    "facebook": "MindlabLampang",
+    "line": "@mindlab"
+  }
+}
