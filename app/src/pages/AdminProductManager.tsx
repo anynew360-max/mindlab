@@ -13,11 +13,10 @@ import {
   ArrowLeft,
   ShieldCheck
 } from 'lucide-react';
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
-import productsData from '@/data/products.json';
 
 type Product = {
   id: number;
@@ -51,13 +50,15 @@ export default function AdminProductManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [orderCount, setOrderCount] = useState(0);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const sortById = (a: Product, b: Product) => a.id - b.id;
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     const seedFromJson = async () => {
       try {
-        const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
+        const res = await fetch('/data/products.json');
+        const data = await res.json();
+        const items: Product[] = Array.isArray(data.products) ? data.products : [];
         setProducts([...items].sort(sortById));
 
         if (!isFirebaseConfigured) return;
@@ -74,36 +75,38 @@ export default function AdminProductManager() {
       }
     };
 
-    const loadOnceFromFirestore = async () => {
-      const colRef = collection(db, 'products');
-      const snapshot = await getDocs(colRef);
-      if (snapshot.empty) {
-        await seedFromJson();
-        setIsLoadingProducts(false);
-        return;
-      }
-      const data = snapshot.docs.map((d) => ({
-        firestoreId: d.id,
-        ...(d.data() as Product),
-      }));
-      setProducts((data as Product[]).slice().sort(sortById));
-      setIsLoadingProducts(false);
-    };
-
     if (!isFirebaseConfigured) {
       const stored = localStorage.getItem('products');
       if (stored) {
         setProducts(JSON.parse(stored) as Product[]);
-        setIsLoadingProducts(false);
         return;
       }
       seedFromJson();
-      setIsLoadingProducts(false);
       return;
     }
 
-    loadOnceFromFirestore();
-    return;
+    const q = query(collection(db, 'products'), orderBy('id', 'asc'));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        setRealtimeError(null);
+        if (snapshot.empty) {
+          seedFromJson();
+          return;
+        }
+        const data = snapshot.docs.map((d) => ({
+          firestoreId: d.id,
+          ...(d.data() as Product),
+        }));
+        setProducts((data as Product[]).slice().sort(sortById));
+      },
+      (error) => {
+        console.error('Realtime products error:', error);
+        setRealtimeError('ไม่สามารถอ่านข้อมูลแบบเรียลไทม์ได้ กรุณาตรวจสอบ Firestore Rules');
+      }
+    );
+
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -235,6 +238,11 @@ export default function AdminProductManager() {
 
   const ProductList = () => (
     <div className="animate-fade-in">
+      {realtimeError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {realtimeError}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-3">จัดการสินค้า</h1>
