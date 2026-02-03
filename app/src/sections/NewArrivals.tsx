@@ -32,6 +32,7 @@ const NewArrivals = () => {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
+  const lastCountRef = useRef(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -64,6 +65,7 @@ const NewArrivals = () => {
     const ids = next.map((p) => p.id).join(',');
     if (ids === lastIdsRef.current) return;
     lastIdsRef.current = ids;
+    lastCountRef.current = next.length;
     setProducts(next);
   };
 
@@ -118,7 +120,9 @@ const NewArrivals = () => {
         const allProducts = snapshot.docs.map((d) => d.data() as Product);
         const sorted = [...allProducts].sort(sortById);
         const newProducts = sorted.filter((p) => p.isNew);
-        applyProducts(newProducts.length > 0 ? newProducts : sorted);
+        const next = newProducts.length > 0 ? newProducts : sorted;
+        if (lastCountRef.current > 0 && next.length < lastCountRef.current) return;
+        applyProducts(next);
         writeCache(sorted);
         setIsLoading(false);
       });

@@ -35,6 +35,7 @@ function ProductsContent() {
   const PRODUCTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
+  const lastCountRef = useRef(0);
   const [comments, setComments] = useState<{ [productId: number]: string[] }>({});
   const [commentInput, setCommentInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -74,6 +75,7 @@ function ProductsContent() {
     const ids = next.map((p) => p.id).join(',');
     if (ids === lastIdsRef.current) return;
     lastIdsRef.current = ids;
+    lastCountRef.current = next.length;
     setProducts(next);
   };
 
@@ -125,6 +127,7 @@ function ProductsContent() {
           ...(d.data() as Product),
         }));
         const next = (data as Product[]).slice().sort(sortById);
+        if (lastCountRef.current > 0 && next.length < lastCountRef.current) return;
         applyProducts(next);
         writeCache(next);
         setIsLoading(false);
