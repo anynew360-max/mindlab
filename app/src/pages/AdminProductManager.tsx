@@ -201,17 +201,25 @@ export default function AdminProductManager() {
 
   const handleSave = async (formData: ProductFormData) => {
     if (isFirebaseConfigured) {
-      if (editingProduct?.firestoreId) {
-        const { firestoreId, ...payload } = { ...formData, id: editingProduct.id } as Product;
-        await updateDoc(doc(db, 'products', editingProduct.firestoreId), payload);
-      } else {
-        await addDoc(collection(db, 'products'), {
-          ...formData,
-          id: Date.now(),
-          createdAt: serverTimestamp(),
-        });
+      try {
+        if (editingProduct?.firestoreId) {
+          const { firestoreId, ...payload } = { ...formData, id: editingProduct.id } as Product;
+          await updateDoc(doc(db, 'products', editingProduct.firestoreId), payload);
+        } else if (editingProduct) {
+          const payload = { ...formData, id: editingProduct.id } as Product;
+          await setDoc(doc(db, 'products', String(editingProduct.id)), payload, { merge: true });
+        } else {
+          await addDoc(collection(db, 'products'), {
+            ...formData,
+            id: Date.now(),
+            createdAt: serverTimestamp(),
+          });
+        }
+        setView('list');
+      } catch (error) {
+        console.error('Failed to save product:', error);
+        alert('บันทึกสินค้าไม่สำเร็จ กรุณาตรวจสอบสิทธิ์ Firestore');
       }
-      setView('list');
       return;
     }
 

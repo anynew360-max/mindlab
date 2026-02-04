@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Tag, Percent } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getImageUrl } from '@/lib/utils';
 import productsData from '@/data/products.json';
 
 const promotionStyles = `
@@ -164,8 +163,7 @@ const PromotionBanner = () => {
           {/* ส่วนที่ 1: เนื้อหาข้อความ (Text Content) */}
           <div className="w-full lg:w-1/2 p-8 md:p-12 flex flex-col justify-center order-2 lg:order-1 animate-in-up">
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 px-4 py-1 rounded-full font-bold text-sm mb-4 w-fit pulse-glow shadow-lg">
-              <Tag className="w-4 h-4" />
-              โปรโมชั่นพิเศษ
+              งานแข่งประจำสัปดาห์
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-2 leading-tight">
               {currentPromo.title}
@@ -176,23 +174,14 @@ const PromotionBanner = () => {
             <p className="text-white/70 text-lg mb-6 max-w-md">
               {currentPromo.description}
             </p>
-            <div className="flex items-center gap-4">
-              <div className="bg-gray-900/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-yellow-600/30">
-                <span className="text-yellow-500/60 text-sm block">รหัสโค้ด</span>
-                <p className="text-yellow-400 font-bold text-lg">{currentPromo.code}</p>
-              </div>
-              <Button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-gray-900 font-bold px-6 h-12 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/50 hover:scale-105">
-                <Percent className="w-4 h-4 mr-2" />
-                ใช้โค้ดเลย
-              </Button>
-            </div>
+            <div className="flex items-center gap-4" />
           </div>
 
           {/* ส่วนที่ 2: รูปภาพขนาดใหญ่ (Large Image Display) */}
           {/* บังคับความสูงบนจอใหญ่ให้คงที่ เพื่อให้ภาพทั้งสองโปรโมชั่นมีขนาดเท่ากัน */}
           <div className="w-full lg:w-1/2 relative h-[300px] lg:h-[600px] order-1 lg:order-2 animate-in-right overflow-hidden">
             <img 
-              src={getImageUrl(currentPromo.image)} 
+              src={currentPromo.image} 
               alt={currentPromo.title}
               className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" 
               loading="lazy"

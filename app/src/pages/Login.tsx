@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-// ลบ Firebase ออก ใช้ local/mock user
 import { 
   Mail, 
   Lock, 
@@ -11,16 +10,11 @@ import {
   Smile,
   AlertCircle
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 
-type MockUser = {
-  name: string;
-  email: string;
-  password: string;
-  role: 'admin' | 'user';
-};
-
 export default function Login() {
+  const { login, signup, error: authError } = useAuth();
   const navigate = useNavigate();
   
   // State
@@ -30,21 +24,7 @@ export default function Login() {
   const [name, setName] = useState(''); // สำหรับ Signup
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Load or initialize mock users from localStorage
-  const defaultUsers: MockUser[] = [
-    { name: 'Admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
-    { name: 'Demo User', email: 'demo@example.com', password: 'password123', role: 'user' }
-  ];
-  const [mockUsers, setMockUsers] = useState<MockUser[]>(() => {
-    const saved = localStorage.getItem('mock_users');
-    if (!saved) return defaultUsers;
-    try {
-      return JSON.parse(saved) as MockUser[];
-    } catch {
-      return defaultUsers;
-    }
-  });
+  const displayError = error || authError || '';
 
   const handleAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -53,22 +33,10 @@ export default function Login() {
 
     try {
       if (authMode === 'login') {
-        // --- เข้าสู่ระบบ (mock) ---
-        const found = mockUsers.find(u => u.email === email && u.password === password);
-        if (!found) throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-        localStorage.setItem('auth_user', JSON.stringify(found));
-        // Admin redirect: go to homepage first
+        await login(email, password);
         navigate('/');
       } else {
-        // --- สมัครสมาชิก (mock) ---
-        if (!name.trim()) throw new Error('กรุณากรอกชื่อผู้ใช้งาน');
-        if (mockUsers.some(u => u.email === email)) throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
-        if (password.length < 6) throw new Error('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
-        const newUser = { name, email, password, role: 'user' };
-        const updatedUsers = [...mockUsers, newUser];
-        setMockUsers(updatedUsers);
-        localStorage.setItem('mock_users', JSON.stringify(updatedUsers));
-        localStorage.setItem('auth_user', JSON.stringify(newUser));
+        await signup(name, email, password);
         navigate('/');
       }
     } catch (err: any) {
@@ -200,10 +168,10 @@ export default function Login() {
             </div>
 
             {/* Error Display */}
-            {error && (
+            {displayError && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs p-3 rounded-lg flex items-center gap-2 animate-pulse">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
+                {displayError}
               </div>
             )}
 

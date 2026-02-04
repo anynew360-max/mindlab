@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/lib/cart';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
 import productsData from '@/data/products.json';
@@ -25,6 +25,7 @@ interface Product {
   image: string;
   isNew: boolean;
   description: string;
+  firestoreId?: string;
 }
 
 const NewArrivals = () => {
@@ -34,6 +35,7 @@ const NewArrivals = () => {
   const lastIdsRef = useRef('');
   const baseProducts = Array.isArray(productsData.products) ? productsData.products : [];
   const baseById = useRef(new Map<number, Product>());
+  const seededRef = useRef(false);
   if (baseById.current.size === 0) {
     baseProducts.forEach((p) => baseById.current.set(p.id, p as Product));
   }
@@ -43,6 +45,7 @@ const NewArrivals = () => {
   const [favorites, setFavorites] = useState<number[]>([]);
   const { addItem, items } = useCart();
   const navigate = useNavigate();
+  const productsRef = useRef<Product[]>([]);
 
   const readCache = () => {
     try {
@@ -84,6 +87,44 @@ const NewArrivals = () => {
   };
 
   useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
+
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+
+    const fallbackToLocal = () => {
+      const cached = readCache();
+      if (cached && cached.length > 0) {
+        const sortedCached = cached.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+        const newProducts = sortedCached.filter((p) => p.isNew);
+        applyProducts(newProducts.length > 0 ? newProducts : sortedCached);
+        setIsLoading(false);
+        return;
+      }
+
+      const storedProducts = localStorage.getItem('products');
+      if (storedProducts) {
+        const parsed = JSON.parse(storedProducts) as Product[];
+        if (parsed.length > 0) {
+          const sorted = parsed.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+          const newProducts = sorted.filter((p) => p.isNew);
+          applyProducts(newProducts.length > 0 ? newProducts : sorted);
+          writeCache(sorted);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (productsData.products?.length) {
+        const allProducts = (productsData.products as Product[]).map((item) => normalizeProduct(item, item.id)).sort(sortById);
+        const newProducts = allProducts.filter((p) => p.isNew);
+        applyProducts(newProducts.length > 0 ? newProducts : allProducts);
+        writeCache(allProducts);
+      }
+      setIsLoading(false);
+    };
+
     const cached = readCache();
     if (cached && cached.length > 0) {
       const sortedCached = cached.map((item) => normalizeProduct(item, item.id)).sort(sortById);
@@ -99,6 +140,8 @@ const NewArrivals = () => {
     }
 
     const seedFromJson = async () => {
+      if (seededRef.current) return;
+      seededRef.current = true;
       try {
         const allProducts: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
         const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
@@ -116,37 +159,51 @@ const NewArrivals = () => {
             })
           )
         );
-      } catch (err) {
-        console.error('Error loading products:', err);
+      } catch {
         setIsLoading(false);
       }
     };
 
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
-      (async () => {
-        const snapshot = await getDocs(colRef);
-        if (snapshot.empty) {
-          await seedFromJson();
-          return;
+      unsub = onSnapshot(
+        colRef,
+        (snapshot) => {
+          if (snapshot.empty) {
+            if (productsRef.current.length > 0) return;
+            seedFromJson();
+            if (!seededRef.current) return;
+          }
+          const allProducts = snapshot.docs.map((d) => {
+            const docId = Number(d.id);
+            return normalizeProduct({
+              firestoreId: d.id,
+              ...(d.data() as Product),
+            }, Number.isNaN(docId) ? undefined : docId);
+          });
+          const sorted = allProducts.slice().sort(sortById);
+          const newProducts = sorted.filter((p) => p.isNew);
+          applyProducts(newProducts.length > 0 ? newProducts : sorted);
+          writeCache(sorted);
+          setIsLoading(false);
+        },
+        (error) => {
+          const code = (error as { code?: string })?.code;
+          if (code !== 'permission-denied') {
+            console.error('Error loading products:', error);
+          }
+          fallbackToLocal();
         }
-        const allProducts = snapshot.docs.map((d) => {
-          const docId = Number(d.id);
-          return normalizeProduct(d.data() as Product, Number.isNaN(docId) ? undefined : docId);
-        });
-        const sorted = allProducts.slice().sort(sortById);
-        const newProducts = sorted.filter((p) => p.isNew);
-        applyProducts(newProducts.length > 0 ? newProducts : sorted);
-        writeCache(sorted);
-        setIsLoading(false);
-      })();
+      );
     } else {
       const storedProducts = localStorage.getItem('products');
       let allProducts: Product[] = [];
       if (storedProducts) {
         allProducts = JSON.parse(storedProducts) as Product[];
-        const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
-        writeCache(sorted);
+        if (allProducts.length > 0) {
+          const sorted = allProducts.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+          writeCache(sorted);
+        }
       }
       // fallback to fetch if no localStorage
       if (allProducts.length === 0) {
@@ -159,7 +216,9 @@ const NewArrivals = () => {
       }
     }
 
-    return undefined;
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const addToCart = (product: Product) => {
@@ -228,20 +287,21 @@ const NewArrivals = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {products.slice(0, 4).map((product) => (
             <div
-              key={product.id}
+              key={product.firestoreId || product.id}
               className="group bg-gray-900 rounded-xl shadow-lg hover:shadow-2xl hover:shadow-yellow-500/10 transition-all duration-300 overflow-hidden border border-yellow-600/20"
             >
               {/* Image Container */}
-              <div className="relative aspect-[4/5] overflow-hidden bg-gray-800">
+              <div className="relative aspect-[3/4] sm:aspect-[4/5] overflow-hidden bg-gray-800">
                 <img
                   src={getImageUrl(product.image)}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   loading="lazy"
                   decoding="async"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholder.svg';
                   }}
@@ -260,7 +320,7 @@ const NewArrivals = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                   <button
                     onClick={() => toggleFavorite(product.id)}
                     className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
@@ -288,17 +348,17 @@ const NewArrivals = () => {
               </div>
 
               {/* Content */}
-              <div className="p-4">
-                <h3 className="font-semibold text-white mb-1 line-clamp-2 min-h-[48px]">
+              <div className="p-3 sm:p-4">
+                <h3 className="font-semibold text-white mb-1 line-clamp-2 min-h-[48px] text-sm sm:text-base">
                   {product.name}
                 </h3>
-                <p className="text-sm text-gray-400 mb-3 line-clamp-1">
+                <p className="text-xs sm:text-sm text-gray-400 mb-3 line-clamp-1">
                   {product.description}
                 </p>
                 
                 {/* Price */}
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl font-bold text-yellow-500">
+                  <span className="text-lg sm:text-xl font-bold text-yellow-500">
                     {formatPrice(product.price)}
                   </span>
                   {product.originalPrice && (
@@ -311,7 +371,7 @@ const NewArrivals = () => {
                 {/* Add to Cart Button */}
                 <Button
                   onClick={() => addToCart(product)}
-                  className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-gray-900 font-bold"
+                  className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-gray-900 font-bold text-sm sm:text-base"
                 >
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   {items.some((i) => i.id === product.id) ? 'เพิ่มแล้ว' : 'ใส่ตะกร้า'}

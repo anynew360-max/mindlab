@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, MapPin, ShoppingBag, Phone, Calendar, Plus, Minus, Trash2, LogIn, User as UserIcon, LogOut, ArrowLeft, Image as ImageIcon, Key } from 'lucide-react';
+import { Menu, MapPin, ShoppingBag, Phone, Calendar, Plus, Minus, Trash2, LogIn, User as UserIcon, LogOut, ArrowLeft, Image as ImageIcon, Key, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -13,11 +13,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { useCart } from '@/lib/cart';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 // --- Firebase Imports ---
 // แก้ไข: แยก Import functions กับ Type ออกจากกันเพื่อป้องกัน Error
@@ -60,6 +62,8 @@ const LogoSVG = ({ className = "w-12 h-12" }: { className?: string }) => (
 );
 
 const Header = () => {
+  const apiBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+  const apiUrl = (path: string) => `${apiBase}${path.startsWith('/') ? path : `/${path}`}`;
   const [isOpen, setIsOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -75,37 +79,18 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // --- Auth State Logic (localStorage) ---
-  type AuthUser = { name?: string; email: string; role?: string; profileImage?: string } | null;
-  const [user, setUser] = useState<AuthUser>(null);
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const [userDrawerOpen, setUserDrawerOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [pendingProfileImage, setPendingProfileImage] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   useEffect(() => {
-    const storedUser = localStorage.getItem('auth_user');
-    if (storedUser) {
-      const userObj = JSON.parse(storedUser);
-      setUser(userObj);
-      // Prefer profileImage from user object if exists
-      if (userObj.profileImage) {
-        setProfileImage(userObj.profileImage);
-      } else {
-        const img = localStorage.getItem('profile_image');
-        if (img) setProfileImage(img);
-      }
-    } else {
-      setUser(null);
-      setProfileImage(null);
-    }
-  }, [userDrawerOpen, showConfirmModal, profileImage]);
+    setProfileImage(user?.profileImage || null);
+  }, [user]);
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('profile_image');
-    setUser(null);
-    setProfileImage(null);
-    window.location.reload();
+    logout();
+    setUserDrawerOpen(false);
   };
 
   // ฟังก์ชันช่วย Scroll ไปยัง Section ต่างๆ
@@ -207,9 +192,20 @@ const Header = () => {
               </SheetTrigger>
               <SheetContent side="right" className="bg-gradient-to-b from-gray-900 to-gray-950 border-yellow-600/30 w-full sm:max-w-[90%] md:max-w-[900px] flex flex-col">
                 <SheetHeader className="border-b border-yellow-600/30 pb-4">
-                  <SheetTitle className="text-yellow-500 text-2xl font-bold flex items-center gap-2">
-                    <ShoppingBag className="w-6 h-6" /> ตระกร้าสินค้า
-                  </SheetTitle>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="md:hidden text-yellow-500 hover:bg-yellow-500/10"
+                      onClick={() => setCartOpen(false)}
+                      aria-label="Back"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <SheetTitle className="text-yellow-500 text-2xl font-bold flex items-center gap-2">
+                      <ShoppingBag className="w-6 h-6" /> ตระกร้าสินค้า
+                    </SheetTitle>
+                  </div>
                 </SheetHeader>
                 
                 {items.length === 0 ? (
@@ -324,6 +320,9 @@ const Header = () => {
               <DialogContent className="bg-gray-900 border border-yellow-600/30 text-white">
                 <DialogHeader>
                   <DialogTitle className="text-yellow-500 text-xl">กรอกข้อมูลสำหรับการชำระเงิน</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    ฟอร์มสำหรับกรอกข้อมูลผู้รับสินค้าและยืนยันคำสั่งซื้อ
+                  </DialogDescription>
                 </DialogHeader>
                 <form
                   onSubmit={async (e) => {
@@ -354,7 +353,23 @@ const Header = () => {
                     localStorage.setItem('orders', JSON.stringify([order, ...storedOrders]));
                     window.dispatchEvent(new Event('orders-updated'));
 
-                    if (isFirebaseConfigured) {
+                    let saved = false;
+                    try {
+                      const response = await fetch(apiUrl('/api/create-order'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order }),
+                      });
+                      const data = await response.json();
+                      if (!response.ok) {
+                        throw new Error(data?.error || 'Create order failed');
+                      }
+                      saved = true;
+                    } catch (error) {
+                      console.error('Failed to save order via API:', error);
+                    }
+
+                    if (!saved && isFirebaseConfigured) {
                       try {
                         await addDoc(collection(db, 'orders'), {
                           ...order,
@@ -442,6 +457,22 @@ const Header = () => {
             </Dialog>
           </nav>
 
+          {/* Mobile Cart Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative md:hidden text-yellow-500 hover:bg-yellow-500/10 transition-transform active:scale-90"
+            onClick={() => setCartOpen(true)}
+            aria-label="Open cart"
+          >
+            <ShoppingBag className="w-6 h-6" />
+            {items.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-md border border-red-400">
+                {items.length}
+              </span>
+            )}
+          </Button>
+
           {/* Mobile Menu Button */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild className="md:hidden">
@@ -487,7 +518,19 @@ const Header = () => {
               </Link>
             </Button>
           ) : (
-            <div className="flex items-center gap-3 ml-3">
+            <div className="flex items-center gap-2 ml-3">
+              {(user?.isAdmin || (user as any)?.role === 'admin') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/40 rounded-full w-10 h-10 flex items-center justify-center"
+                  aria-label="Admin Dashboard"
+                  title="Admin Dashboard"
+                  onClick={() => window.location.href = '/admin'}
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -563,23 +606,9 @@ const Header = () => {
                             <div className="flex gap-4">
                               <Button size="sm" className="bg-yellow-500 text-gray-900 font-bold" onClick={() => {
                                 setProfileImage(pendingProfileImage);
-                                // Save image to user object in localStorage (mock database)
-                                const storedUser = localStorage.getItem('auth_user');
-                                if (storedUser) {
-                                  const userObj = JSON.parse(storedUser);
-                                  userObj.profileImage = pendingProfileImage;
-                                  localStorage.setItem('auth_user', JSON.stringify(userObj));
-                                  // Update profile image in mock_users array
-                                  const usersRaw = localStorage.getItem('mock_users');
-                                  if (usersRaw) {
-                                    const usersArr = JSON.parse(usersRaw);
-                                    const updatedArr = usersArr.map((u: any) =>
-                                      u.email === userObj.email ? { ...u, profileImage: pendingProfileImage } : u
-                                    );
-                                    localStorage.setItem('mock_users', JSON.stringify(updatedArr));
-                                  }
+                                if (pendingProfileImage) {
+                                  updateProfile({ profileImage: pendingProfileImage });
                                 }
-                                localStorage.setItem('profile_image', pendingProfileImage!);
                                 setPendingProfileImage(null);
                                 setShowConfirmModal(false);
                               }}>ยืนยัน</Button>
@@ -620,12 +649,13 @@ const Header = () => {
                             alert('กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่');
                             return;
                           }
-                          // Mock: Assume old password is always correct
-                          alert('เปลี่ยนรหัสผ่านสำเร็จ (mock)');
+                          changePassword(oldPass, newPass)
+                            .then(() => alert('เปลี่ยนรหัสผ่านสำเร็จ'))
+                            .catch(() => alert('เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาตรวจสอบรหัสผ่านเดิม'));
                         }}>บันทึกรหัสผ่านใหม่</Button>
                       </div>
                       {/* Admin Dashboard Button (only for admin) */}
-                      {user && user.role === 'admin' && (
+                      {user && (user.isAdmin || (user as any).role === 'admin') && (
                         <Button
                           size="lg"
                           className="w-full bg-yellow-500 text-black font-bold text-base shadow hover:bg-yellow-400"

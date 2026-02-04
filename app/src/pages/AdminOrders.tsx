@@ -8,8 +8,8 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { useAuth } from '@/hooks/useAuth';
 
 type OrderItem = {
   id: number;
@@ -80,6 +80,9 @@ function SidebarMenuItem({
 export default function AdminOrders() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading } = useAuth();
+  const apiBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+  const apiUrl = (path: string) => `${apiBase}${path.startsWith('/') ? path : `/${path}`}`;
   const [orders, setOrders] = useState<Order[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
@@ -91,39 +94,42 @@ export default function AdminOrders() {
   });
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('auth_user') || 'null');
-    if (!user || user.role !== 'admin') {
+    if (loading) return;
+    if (!user || !user.isAdmin) {
       navigate('/');
     }
-  }, [navigate]);
+  }, [loading, user, navigate]);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+
     const loadLocalOrders = () => {
       const stored = localStorage.getItem('orders');
       setOrders(stored ? JSON.parse(stored) : []);
     };
 
-    if (!isFirebaseConfigured) {
-      loadLocalOrders();
-      const handler = () => loadLocalOrders();
-      window.addEventListener('orders-updated', handler);
-      window.addEventListener('storage', handler);
-      return () => {
-        window.removeEventListener('orders-updated', handler);
-        window.removeEventListener('storage', handler);
-      };
-    }
+    const loadOrdersFromApi = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/orders'));
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load orders');
+        }
+        setOrders(Array.isArray(data.orders) ? data.orders : []);
+      } catch (error) {
+        console.error('Failed to load orders from API:', error);
+        if (!isFirebaseConfigured) {
+          loadLocalOrders();
+        }
+      }
+    };
 
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        firestoreId: doc.id,
-        ...(doc.data() as Order),
-      }));
-      setOrders(data);
-    });
+    loadOrdersFromApi();
+    interval = setInterval(loadOrdersFromApi, 5000);
 
-    return () => unsub();
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   const beginEdit = (order: Order) => {
@@ -155,14 +161,25 @@ export default function AdminOrders() {
       },
     };
 
-    if (isFirebaseConfigured && order.firestoreId) {
+    if (order.firestoreId) {
       try {
-        await updateDoc(doc(db, 'orders', order.firestoreId), {
-          status: updatedOrder.status,
-          customer: updatedOrder.customer,
+        const response = await fetch(apiUrl('/api/update-order'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firestoreId: order.firestoreId,
+            updates: {
+              status: updatedOrder.status,
+              customer: updatedOrder.customer,
+            },
+          }),
         });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || 'Update failed');
+        }
       } catch (error) {
-        console.error('Failed to update order in Firestore:', error);
+        console.error('Failed to update order via API:', error);
       }
     }
 
@@ -177,11 +194,19 @@ export default function AdminOrders() {
   const handleDelete = async (order: Order) => {
     if (!confirm('ลบคำสั่งซื้อนี้หรือไม่?')) return;
 
-    if (isFirebaseConfigured && order.firestoreId) {
+    if (order.firestoreId) {
       try {
-        await deleteDoc(doc(db, 'orders', order.firestoreId));
+        const response = await fetch(apiUrl('/api/delete-order'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firestoreId: order.firestoreId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || 'Delete failed');
+        }
       } catch (error) {
-        console.error('Failed to delete order in Firestore:', error);
+        console.error('Failed to delete order via API:', error);
       }
     }
 

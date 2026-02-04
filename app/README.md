@@ -43,6 +43,27 @@ export default defineConfig([
 ])
 ```
 
+## Firebase (Auth + Firestore)
+
+โปรเจกต์นี้รองรับการเข้าสู่ระบบแบบข้ามเครื่องและเก็บข้อมูลลูกค้าใน Firestore แล้ว
+
+### ขั้นตอนตั้งค่า
+
+1) ไปที่ Firebase Console แล้วเปิดใช้งาน Email/Password ใน Authentication.
+
+2) สร้าง Firestore Database (โหมด production).
+
+3) ใช้กฎ Firestore จากไฟล์ [firestore.rules](firestore.rules) แล้ว Deploy ด้วย Firebase CLI.
+
+4) ตั้ง `isAdmin: true` ในเอกสารผู้ใช้ที่ต้องการสิทธิ์แอดมิน (collection `users`).
+
+> หมายเหตุ: โปรไฟล์ผู้ใช้จะถูกเก็บใน collection `users` ตาม `uid` ของ Firebase Auth.
+
+## Firebase Storage
+
+เพื่อให้อัปโหลดรูปสินค้าได้ ให้ตั้งกฎ Storage จากไฟล์ [storage.rules](storage.rules)
+แล้ว Deploy ด้วย Firebase CLI.
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js

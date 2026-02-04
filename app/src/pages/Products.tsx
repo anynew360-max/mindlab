@@ -1,12 +1,13 @@
 import Header from '../sections/Header';
 import Footer from '../sections/Footer';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { useRef } from 'react'; // Keep the import for useRef
 import { Badge } from '../components/ui/badge';
 import { CartProvider, useCart } from '../lib/cart';
 import { getImageUrl } from '../lib/utils';
-import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '../lib/firebase';
 import productsData from '../data/products.json';
@@ -15,7 +16,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '../components/ui/dialog';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Product {
   id: number;
@@ -46,13 +49,15 @@ function ProductsContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [category, setCategory] = useState<string>('ทั้งหมด');
   const [search, setSearch] = useState<string>('');
+  const seededRef = useRef(false); // Added seededRef to prevent repeated seeding
   const { addItem, items } = useCart();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [pendingEdits, setPendingEdits] = useState<{ [id: number]: Product }>({});
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
+  const productsRef = useRef<Product[]>([]);
 
   const readCache = () => {
     try {
@@ -94,6 +99,28 @@ function ProductsContent() {
   };
 
   useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
+
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+
+    const fallbackToLocal = () => {
+      const storedProducts = localStorage.getItem('products');
+      if (storedProducts) {
+        const parsed = JSON.parse(storedProducts) as Product[];
+        if (parsed.length > 0) {
+          const sorted = parsed.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+          applyProducts(sorted);
+          writeCache(sorted);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      seedFromJson();
+    };
+
     const cached = readCache();
     if (cached && cached.length > 0) {
       applyProducts([...cached].sort(sortById));
@@ -108,6 +135,8 @@ function ProductsContent() {
     const seedFromJson = async () => {
       try {
         const items: Product[] = Array.isArray(productsData.products) ? productsData.products : [];
+        if (seededRef.current) return; // Prevent repeated seeding
+        seededRef.current = true; // Set seededRef to true after first seeding
         const sorted = items.map((item) => normalizeProduct(item, item.id)).sort(sortById);
         applyProducts(sorted);
         writeCache(sorted);
@@ -129,42 +158,52 @@ function ProductsContent() {
 
     if (isFirebaseConfigured) {
       const colRef = collection(db, 'products');
-      (async () => {
-        const snapshot = await getDocs(colRef);
-        if (snapshot.empty) {
-          await seedFromJson();
-          return;
+      unsub = onSnapshot(
+        colRef,
+        (snapshot) => {
+          if (snapshot.empty) {
+            if (productsRef.current.length > 0) return;
+            seedFromJson();
+            return;
+          }
+          const data = snapshot.docs.map((d) => {
+            const docId = Number(d.id);
+            return normalizeProduct({
+              firestoreId: d.id,
+              ...(d.data() as Product),
+            }, Number.isNaN(docId) ? undefined : docId);
+          });
+          const next = data.slice().sort(sortById);
+          applyProducts(next);
+          writeCache(next);
+          setIsLoading(false);
+        },
+        (error) => {
+          const code = (error as { code?: string })?.code;
+          if (code !== 'permission-denied') {
+            console.error('Error loading products:', error);
+          }
+          fallbackToLocal();
         }
-        const data = snapshot.docs.map((d) => {
-          const docId = Number(d.id);
-          return normalizeProduct({
-            firestoreId: d.id,
-            ...(d.data() as Product),
-          }, Number.isNaN(docId) ? undefined : docId);
-        });
-        const next = data.slice().sort(sortById);
-        applyProducts(next);
-        writeCache(next);
-        setIsLoading(false);
-      })();
+      );
     } else {
       const storedProducts = localStorage.getItem('products');
       if (storedProducts) {
         const parsed = JSON.parse(storedProducts) as Product[];
-        const sorted = parsed.map((item) => normalizeProduct(item, item.id)).sort(sortById);
-        applyProducts(sorted);
-        writeCache(sorted);
-        setIsLoading(false);
-      } else {
-        seedFromJson();
+        if (parsed.length > 0) {
+          const sorted = parsed.map((item) => normalizeProduct(item, item.id)).sort(sortById);
+          applyProducts(sorted);
+          writeCache(sorted);
+          setIsLoading(false);
+          return;
+        }
       }
+      seedFromJson();
     }
 
-    // Load user
-    const storedUser = localStorage.getItem('auth_user');
-    if (storedUser) setUser(JSON.parse(storedUser));
-
-    return undefined;
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const handleAddComment = () => {
@@ -281,17 +320,17 @@ function ProductsContent() {
 
   return (
     <>
-      <section className="w-full pt-10 pb-4 bg-gray-950 min-h-screen">
+      <section className="w-full pt-6 sm:pt-10 pb-4 bg-gray-950 min-h-screen">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2 text-center drop-shadow">สินค้าทั้งหมด</h2>
-          <p className="text-gray-400 text-center mb-8">เลือกดูสินค้าและอุปกรณ์การ์ดเกมจากทุกหมวดหมู่</p>
-          <div className="bg-gray-900/95 rounded-xl shadow-lg p-4 md:p-6 mb-8 flex flex-col items-center gap-4 border border-yellow-500/30">
-            <div className="flex flex-wrap gap-2 justify-center w-full">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-2 text-center drop-shadow">สินค้าทั้งหมด</h2>
+          <p className="text-gray-400 text-center mb-6 sm:mb-8 text-sm sm:text-base">เลือกดูสินค้าและอุปกรณ์การ์ดเกมจากทุกหมวดหมู่</p>
+          <div className="bg-gray-900/95 rounded-xl shadow-lg p-4 md:p-6 mb-6 sm:mb-8 flex flex-col items-center gap-4 border border-yellow-500/30">
+            <div className="flex w-full gap-2 overflow-x-auto pb-1 justify-start sm:justify-center">
               {categories.map((cat) => (
                 <Button
                   key={cat}
                   variant={cat === category ? 'default' : 'outline'}
-                  className={cat === category ? 'bg-yellow-500 text-gray-900' : 'border-yellow-500 text-yellow-500 hover:bg-yellow-500/10'}
+                  className={`${cat === category ? 'bg-yellow-500 text-gray-900' : 'border-yellow-500 text-yellow-500 hover:bg-yellow-500/10'} whitespace-nowrap text-sm px-4`}
                   onClick={() => setCategory(cat)}
                 >
                   {cat}
@@ -312,31 +351,25 @@ function ProductsContent() {
           {filteredProducts.length === 0 ? (
             <div className="text-center text-gray-400 py-16 text-xl">ไม่พบสินค้าในหมวดนี้</div>
           ) : (
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"
-              style={{
-                maxHeight: '70vh',
-                overflowY: 'auto',
-                paddingBottom: '1rem',
-                marginBottom: '1rem',
-              }}
-            >
+            <div className="max-h-[70vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {filteredProducts.map((product, idx) => (
                 <div
-                  key={product.id}
+                  key={product.firestoreId || product.id}
                   className="group bg-gray-900 rounded-2xl shadow-lg hover:shadow-yellow-500/10 transition-all duration-300 overflow-hidden border border-yellow-600/20 flex flex-col cursor-pointer"
                   onClick={() => {
                     setSelectedProduct(product);
                     setShowDetail(true);
                   }}
                 >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-gray-800">
+                  <div className="relative aspect-[3/4] sm:aspect-[4/5] overflow-hidden bg-gray-800">
                     <img
                       src={getImageUrl(pendingEdits[product.id]?.image || product.image)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
                       decoding="async"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         e.currentTarget.src = '/images/placeholder.svg';
                       }}
@@ -344,13 +377,13 @@ function ProductsContent() {
                     <div className="absolute top-3 left-3 flex flex-col gap-2">
                       {product.isNew && <Badge className="bg-yellow-500 text-gray-900 font-bold">ใหม่</Badge>}
                     </div>
-                    {user && user.role === 'admin' && (
+                    {user && user.isAdmin && (
                       <Button size="sm" className="absolute bottom-3 right-3 bg-yellow-500 text-black font-bold shadow" onClick={e => { e.stopPropagation(); setEditIndex(idx); setEditData({ ...pendingEdits[product.id] || product }); }}>
                         แก้ไขสินค้า
                       </Button>
                     )}
                   </div>
-                  <div className="p-4 flex-1 flex flex-col">
+                  <div className="p-3 sm:p-4 flex-1 flex flex-col">
                     {editIndex === idx ? (
                       <>
                         <input className="mb-2 w-full bg-gray-800 border border-yellow-500 rounded px-2 py-1 text-white" value={editData.name} onChange={e => setEditData((prev: any) => ({ ...prev, name: e.target.value }))} />
@@ -378,12 +411,12 @@ function ProductsContent() {
                       </>
                     ) : (
                       <>
-                        <h3 className="font-semibold text-white mb-2 line-clamp-2">{pendingEdits[product.id]?.name || product.name}</h3>
+                        <h3 className="font-semibold text-white mb-2 line-clamp-2 text-sm sm:text-base">{pendingEdits[product.id]?.name || product.name}</h3>
                         <div className="mt-auto">
-                          <span className="text-xl font-bold text-yellow-500">{formatPrice(pendingEdits[product.id]?.price || product.price)}</span>
+                          <span className="text-lg sm:text-xl font-bold text-yellow-500">{formatPrice(pendingEdits[product.id]?.price || product.price)}</span>
                           <Button 
                             onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                            className="w-full mt-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold"
+                            className="w-full mt-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold text-sm sm:text-base"
                           >
                             <ShoppingCart className="w-4 h-4 mr-2" />
                             {items.some(i => i.id === product.id) ? 'เพิ่มแล้ว' : 'ใส่ตะกร้า'}
@@ -394,7 +427,8 @@ function ProductsContent() {
                   </div>
                 </div>
               ))}
-          {user && user.role === 'admin' && Object.keys(pendingEdits).length > 0 && (
+              </div>
+          {user && user.isAdmin && Object.keys(pendingEdits).length > 0 && (
             <div className="flex justify-end mt-6">
               <Button className="bg-green-500 text-white font-bold px-6 py-2 rounded-xl" onClick={async () => {
                 const updated = products.map(p => pendingEdits[p.id] ? pendingEdits[p.id] : p);
@@ -438,11 +472,12 @@ function ProductsContent() {
                   className="object-contain w-full max-h-[350px] rounded-xl border border-yellow-500/20 shadow"
                   loading="lazy"
                   decoding="async"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholder.svg';
                   }}
                 />
-                {user && user.role === 'admin' && editIndex !== null && (
+                {user && user.isAdmin && editIndex !== null && (
                   <input type="file" accept="image/*" className="mt-2" onChange={async e => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -463,6 +498,9 @@ function ProductsContent() {
                         <input className="bg-gray-800 border border-yellow-500 rounded px-2 py-1 text-white w-full" value={editData.name} onChange={e => setEditData((prev: any) => ({ ...prev, name: e.target.value }))} />
                       )}
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                      รายละเอียดสินค้าและการสั่งซื้อ
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="flex items-baseline gap-3 mb-2">
                     <span className="text-3xl font-extrabold text-yellow-500">
@@ -481,7 +519,7 @@ function ProductsContent() {
                       <textarea className="bg-gray-800 border border-yellow-500 rounded px-2 py-1 text-white w-full" value={editData.description} onChange={e => setEditData((prev: any) => ({ ...prev, description: e.target.value }))} />
                     )}
                   </p>
-                  {user && user.role === 'admin' && editIndex === null && (
+                  {user && user.isAdmin && editIndex === null && (
                     <Button size="sm" className="bg-yellow-500 text-black font-bold mb-2" onClick={() => { setEditIndex(selectedProduct.id); setEditData({ ...selectedProduct }); }}>
                       แก้ไขสินค้า
                     </Button>

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "framework": "vite",
+  "installCommand": "npm --prefix app install",
+  "buildCommand": "npm --prefix app run build",
+  "outputDirectory": "app/dist",
+  "functions": {
+    "app/api/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
