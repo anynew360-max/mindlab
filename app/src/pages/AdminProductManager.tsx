@@ -165,6 +165,28 @@ export default function AdminProductManager() {
     localStorage.setItem('products', JSON.stringify(updated));
   };
 
+  const handleDeleteHidden = async () => {
+    const hidden = products.filter((p) => p.status !== 'active');
+    if (hidden.length === 0) {
+      alert('ไม่มีสินค้าที่ถูกปิดการมองเห็น');
+      return;
+    }
+    if (!confirm(`ยืนยันการลบสินค้า ${hidden.length} รายการที่ถูกปิดการมองเห็นหรือไม่?`)) return;
+
+    if (isFirebaseConfigured) {
+      await Promise.all(
+        hidden
+          .filter((p) => p.firestoreId)
+          .map((p) => deleteDoc(doc(db, 'products', String(p.firestoreId))))
+      );
+      return;
+    }
+
+    const updated = products.filter((p) => p.status === 'active');
+    setProducts(updated);
+    localStorage.setItem('products', JSON.stringify(updated));
+  };
+
   const handleSave = async (formData: ProductFormData) => {
     if (isFirebaseConfigured) {
       if (editingProduct?.firestoreId) {
@@ -261,13 +283,22 @@ export default function AdminProductManager() {
           <h1 className="text-3xl font-bold text-white mb-3">จัดการสินค้า</h1>
           <p className="text-[#bfc8e6] text-sm">สินค้าทั้งหมด {products.length} รายการ</p>
         </div>
-        <button 
-          onClick={handleAddNew}
-          className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-[#10131c] px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg shadow-yellow-500/20"
-        >
-          <Plus size={20} />
-          <span>เพิ่มสินค้าใหม่</span>
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleDeleteHidden}
+            className="flex items-center space-x-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 px-5 py-2.5 rounded-lg font-bold transition-all border border-red-500/40"
+          >
+            <Trash2 size={18} />
+            <span>ลบสินค้าที่ปิดการมองเห็น</span>
+          </button>
+          <button 
+            onClick={handleAddNew}
+            className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-[#10131c] px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg shadow-yellow-500/20"
+          >
+            <Plus size={20} />
+            <span>เพิ่มสินค้าใหม่</span>
+          </button>
+        </div>
       </div>
       <div className="bg-[#181c2a] p-4 rounded-xl border border-[#23263a] mb-6 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
