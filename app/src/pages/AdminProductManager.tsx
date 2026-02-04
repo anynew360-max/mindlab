@@ -13,7 +13,7 @@ import {
   ArrowLeft,
   ShieldCheck
 } from 'lucide-react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { db, isFirebaseConfigured, storage } from '@/lib/firebase';
 import { getImageUrl } from '@/lib/utils';
@@ -165,26 +165,21 @@ export default function AdminProductManager() {
     localStorage.setItem('products', JSON.stringify(updated));
   };
 
-  const handleDeleteHidden = async () => {
-    const hidden = products.filter((p) => p.status !== 'active');
-    if (hidden.length === 0) {
-      alert('ไม่มีสินค้าที่ถูกปิดการมองเห็น');
-      return;
-    }
-    if (!confirm(`ยืนยันการลบสินค้า ${hidden.length} รายการที่ถูกปิดการมองเห็นหรือไม่?`)) return;
+  const handleDeleteAll = async () => {
+    if (!confirm('ต้องการลบสินค้าทั้งหมดจริงหรือไม่?')) return;
+    if (!confirm('ยืนยันอีกครั้ง: การลบนี้ย้อนกลับไม่ได้')) return;
 
     if (isFirebaseConfigured) {
-      await Promise.all(
-        hidden
-          .filter((p) => p.firestoreId)
-          .map((p) => deleteDoc(doc(db, 'products', String(p.firestoreId))))
-      );
+      const snapshot = await getDocs(collection(db, 'products'));
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+      await batch.commit();
+      setProducts([]);
       return;
     }
 
-    const updated = products.filter((p) => p.status === 'active');
-    setProducts(updated);
-    localStorage.setItem('products', JSON.stringify(updated));
+    setProducts([]);
+    localStorage.removeItem('products');
   };
 
   const handleSave = async (formData: ProductFormData) => {
@@ -285,11 +280,11 @@ export default function AdminProductManager() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={handleDeleteHidden}
-            className="flex items-center space-x-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 px-5 py-2.5 rounded-lg font-bold transition-all border border-red-500/40"
+            onClick={handleDeleteAll}
+            className="flex items-center space-x-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 px-4 py-2.5 rounded-lg font-bold transition-all border border-red-500/40"
           >
             <Trash2 size={18} />
-            <span>ลบสินค้าที่ปิดการมองเห็น</span>
+            <span>ลบทั้งหมด</span>
           </button>
           <button 
             onClick={handleAddNew}
