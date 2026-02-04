@@ -54,6 +54,8 @@ export default function AdminProductManager() {
   const sortById = (a: Product, b: Product) => a.id - b.id;
   const lastIdsRef = useRef('');
   const hasSeededRef = useRef(false);
+  const allowEmptyRef = useRef(false);
+  const productsRef = useRef<Product[]>([]);
 
   const applyProducts = (next: Product[]) => {
     const ids = next.map((p) => p.id).join(',');
@@ -61,6 +63,10 @@ export default function AdminProductManager() {
     lastIdsRef.current = ids;
     setProducts(next);
   };
+
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
 
   useEffect(() => {
     const seedFromJson = async () => {
@@ -101,7 +107,11 @@ export default function AdminProductManager() {
       (snapshot) => {
         setRealtimeError(null);
         if (snapshot.empty) {
-          if (!hasSeededRef.current) {
+          if (allowEmptyRef.current) {
+            applyProducts([]);
+            return;
+          }
+          if (!hasSeededRef.current && productsRef.current.length === 0) {
             seedFromJson();
           }
           return;
@@ -110,6 +120,7 @@ export default function AdminProductManager() {
           firestoreId: d.id,
           ...(d.data() as Product),
         }));
+        allowEmptyRef.current = false;
         applyProducts((data as Product[]).slice().sort(sortById));
         hasSeededRef.current = true;
       },
@@ -152,6 +163,10 @@ export default function AdminProductManager() {
   const handleDelete = async (id: number) => {
     if (!confirm('คุณแน่ใจหรือไม่ที่จะลบสินค้านี้?')) return;
 
+    if (products.length <= 1) {
+      allowEmptyRef.current = true;
+    }
+
     if (isFirebaseConfigured) {
       const target = products.find((p) => p.id === id);
       if (target?.firestoreId) {
@@ -168,6 +183,8 @@ export default function AdminProductManager() {
   const handleDeleteAll = async () => {
     if (!confirm('ต้องการลบสินค้าทั้งหมดจริงหรือไม่?')) return;
     if (!confirm('ยืนยันอีกครั้ง: การลบนี้ย้อนกลับไม่ได้')) return;
+
+    allowEmptyRef.current = true;
 
     if (isFirebaseConfigured) {
       const snapshot = await getDocs(collection(db, 'products'));
